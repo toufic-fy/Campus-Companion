@@ -72,6 +72,13 @@ fun EventsScreen(
 
                 is EventsUiState.Content -> EventList(events = uiState.events)
 
+                EventsUiState.Empty -> CenteredMessage(
+                    message = "No campus events right now. Check back later!",
+                    onRetry = onRefresh,
+                    buttonLabel = "Refresh",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+
                 is EventsUiState.Error -> CenteredMessage(
                     message = uiState.message,
                     onRetry = onRefresh,
