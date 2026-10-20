@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "title": "Career Fair",
+    "location": "Main Hall",
+    "starts_at": "2026-10-22 10:00",
+    "description": "Meet recruiters from 40+ companies. Bring printed CVs."
+  },
+  {
+    "id": 2,
+    "title": "Android Study Group",
+    "location": "Lab B-204",
+    "starts_at": "2026-10-23 16:00",
+    "description": "Hands-on session on Retrofit, coroutines and MVVM."
+  },
+  {
+    "id": 3,
+    "title": "Hackathon Kickoff",
+    "location": "Innovation Hub",
+    "starts_at": "2026-10-24 18:00",
+    "description": "48 hours, teams of four, prizes for the best campus app."
+  },
+  {
+    "id": 4,
+    "title": "Library Late Night",
+    "location": null,
+    "starts_at": "2026-10-27 20:00",
+    "description": "Quiet study space open until 2 AM before midterms."
+  },
+  {
+    "id": 5,
+    "title": "Student Club Expo",
+    "location": "Campus Square",
+    "starts_at": null,
+    "description": ""
+  }
+]

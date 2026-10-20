@@ -1,5 +1,6 @@
 package com.inci.campuscompanion.data.remote
 
+import com.inci.campuscompanion.BuildConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -9,8 +10,8 @@ interface CampusApi {
     suspend fun getEvents(): List<EventDto>
 
     companion object {
-        // Replace with the workshop's events server. Must end with "/".
-        const val BASE_URL = "https://campus-api.example.com/"
+        // Set per build type in app/build.gradle.kts.
+        const val BASE_URL = BuildConfig.EVENTS_BASE_URL
 
         fun create(baseUrl: String = BASE_URL): CampusApi =
             Retrofit.Builder()
