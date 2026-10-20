@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "title": "Welcome Week Fair",
+    "location": "Main Quad",
+    "starts_at": "2026-10-22 10:00",
+    "description": "Meet clubs, societies and student services."
+  },
+  {
+    "id": 2,
+    "title": "Android Workshop",
+    "location": "Engineering Lab 3",
+    "starts_at": "2026-10-23 14:00",
+    "description": "Fetch, map and display a remote list with Retrofit and Compose."
+  },
+  {
+    "id": 3,
+    "title": "Career Talk: Mobile Dev",
+    "location": "Auditorium B",
+    "starts_at": "2026-10-25 17:30",
+    "description": null
+  },
+  {
+    "id": 4,
+    "title": "Library Study Night",
+    "location": null,
+    "starts_at": "2026-10-27 19:00",
+    "description": "Late opening with free coffee."
+  }
+]
