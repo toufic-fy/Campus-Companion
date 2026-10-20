@@ -18,9 +18,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Real events server. Must end with "/".
+        buildConfigField("String", "EVENTS_BASE_URL", "\"https://campus-api.example.com/\"")
     }
 
     buildTypes {
+        debug {
+            // Local mock server (mock-server/), reached from the emulator through 10.0.2.2.
+            buildConfigField("String", "EVENTS_BASE_URL", "\"http://10.0.2.2:8080/\"")
+        }
         release {
             optimization {
                 enable = false
@@ -34,6 +41,7 @@ android {
     buildFeatures {
         compose = true
         viewBinding = true
+        buildConfig = true
     }
 }
 
@@ -52,6 +60,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
