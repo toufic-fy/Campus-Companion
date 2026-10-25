@@ -11,15 +11,10 @@ import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 
 @Composable
-fun EventsScreen(modifier: Modifier = Modifier){
-    CampusCompanionTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            EventsScreen(
-                modifier = Modifier.padding(innerPadding)
-            )
-        }
-    }
+fun EventsScreen(modifier: Modifier = Modifier) {
+    Greeting("Events", modifier)
 }
+
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(

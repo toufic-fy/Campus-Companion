@@ -16,7 +16,13 @@ class EventsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            EventsScreen(modifier = Modifier)
+            CampusCompanionTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    EventsScreen(
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+            }
         }
     }
 }
