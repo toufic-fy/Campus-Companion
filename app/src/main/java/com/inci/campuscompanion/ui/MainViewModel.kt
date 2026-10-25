@@ -3,8 +3,8 @@ package com.inci.campuscompanion.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.inci.campuscompanion.data.TaskRepository
-import com.inci.campuscompanion.data.UserPreferencesRepository
+import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.model.Task
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

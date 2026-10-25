@@ -40,10 +40,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.inci.campuscompanion.data.AppDatabase
-import com.inci.campuscompanion.data.TaskRepository
-import com.inci.campuscompanion.data.UserPreferencesRepository
-import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.data.local.AppDatabase
+import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
