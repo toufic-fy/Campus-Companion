@@ -1,12 +1,12 @@
 package com.inci.campuscompanion.data.remote.dto
 
-import kotlinx.serialization.SerialName
+import com.google.gson.annotations.SerializedName
 
 data class EventDto(
     val id: String,
-    @SerialName("title") val title: String,
+    @SerializedName("name") val title: String,
     val description: String,
-    @SerialName("startingDate") val startsAt: String,
-    @SerialName("endingDate") val endsAt: String? = null,
-    @SerialName("address") val location: String? = null
+    @SerializedName("startingDate") val startsAt: String,
+    @SerializedName("endingDate") val endsAt: String? = null,
+    @SerializedName("address") val location: String? = null
 )
