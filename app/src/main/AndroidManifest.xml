@@ -23,6 +23,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".EventsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_events"
+            android:theme="@style/Theme.CampusCompanion"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>
