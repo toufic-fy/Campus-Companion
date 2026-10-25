@@ -1,4 +1,8 @@
+
 package com.inci.campuscompanion
+
+
+
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -47,6 +51,13 @@ import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.inci.campuscompanion.data.remote.RetrofitClient
+import com.inci.campuscompanion.data.remote.EventsRemoteDataSource
+import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.ui.events.EventsViewModel
+import com.inci.campuscompanion.ui.events.EventsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,20 +72,63 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsRepository = EventsRepository(
+            EventsRemoteDataSource(RetrofitClient.api)
+        )
+
+        val eventsViewModel: EventsViewModel by viewModels {
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return EventsViewModel(eventsRepository) as T
+                }
+            }
+        }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val eventsState by eventsViewModel.uiState.collectAsStateWithLifecycle()
+            var showEvents by remember { mutableStateOf(false) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            TextButton(onClick = { showEvents = false }) {
+                                Text("Tasks")
+                            }
+                            TextButton(onClick = { showEvents = true }) {
+                                Text("Events")
+                            }
+                        }
+
+                        if (showEvents) {
+                            EventsScreen(
+                                uiState = eventsState,
+                                onRetry = { eventsViewModel.refreshEvents() },
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                                tasks = tasks,
+                                onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                                onAddTask = { title, description ->
+                                    viewModel.upsertTask(title, description)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
