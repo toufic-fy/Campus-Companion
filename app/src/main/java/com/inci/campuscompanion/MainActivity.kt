@@ -75,18 +75,26 @@ class MainActivity : ComponentActivity() {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
-
-            TaskScreen(
-                isDarkMode = isDarkMode,
-                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                tasks = tasks,
-                onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                modifier = Modifier,
-                onNavigateEvents = {
-                    startActivity(Intent(this, EventsActivity::class.java))
+            CampusCompanionTheme(darkTheme = isDarkMode) {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    TaskScreen(
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                        tasks = tasks,
+                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                        onAddTask = { title, description ->
+                            viewModel.upsertTask(
+                                title,
+                                description
+                            )
+                        },
+                        modifier = Modifier.padding(innerPadding),
+                        onNavigateEvents = {
+                            startActivity(Intent(this, EventsActivity::class.java))
+                        }
+                    )
                 }
-            )
+            }
         }
     }
 }

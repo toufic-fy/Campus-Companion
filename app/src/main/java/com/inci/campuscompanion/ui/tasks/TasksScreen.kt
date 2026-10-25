@@ -3,6 +3,7 @@ package com.inci.campuscompanion.ui.tasks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,81 +52,77 @@ fun TaskScreen(
     onNavigateEvents: () -> Unit
 ) {
 
-    CampusCompanionTheme(darkTheme = isDarkMode) {
-        Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-            var showAddDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
-            Box(modifier = modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(innerPadding),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Dark Mode",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Dark Mode",
+                    style = MaterialTheme.typography.titleMedium
+                )
 
-                        Switch(
-                            checked = isDarkMode,
-                            onCheckedChange = onToggleDarkMode
-                        )
-                        Button(
-                            onClick = { onNavigateEvents() }
-                        ) {
-                            Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Events")
-                        }
-                    }
-
-                    HorizontalDivider()
-
-                    if (tasks.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No tasks yet. Tap + to add one!",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    } else {
-                        TaskList(
-                            tasks = tasks,
-                            onToggleTask = onToggleTask,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                Switch(
+                    checked = isDarkMode,
+                    onCheckedChange = onToggleDarkMode
+                )
+                Button(
+                    onClick = { onNavigateEvents() }
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
-                }
-
-                if (showAddDialog) {
-                    AddTaskDialog(
-                        onDismiss = { showAddDialog = false },
-                        onConfirm = { title, description ->
-                            onAddTask(title, description)
-                            showAddDialog = false
-                        }
-                    )
+                    Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Events")
                 }
             }
+
+            HorizontalDivider()
+
+            if (tasks.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No tasks yet. Tap + to add one!",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            } else {
+                TaskList(
+                    tasks = tasks,
+                    onToggleTask = onToggleTask,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
         }
+
+        if (showAddDialog) {
+            AddTaskDialog(
+                onDismiss = { showAddDialog = false },
+                onConfirm = { title, description ->
+                    onAddTask(title, description)
+                    showAddDialog = false
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -244,6 +241,7 @@ fun TaskPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
+            modifier = Modifier.padding(16.dp),
             onNavigateEvents = {}
         )
     }
