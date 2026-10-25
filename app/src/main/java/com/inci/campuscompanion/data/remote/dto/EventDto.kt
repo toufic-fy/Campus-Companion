@@ -4,9 +4,9 @@ import kotlinx.serialization.SerialName
 
 data class EventDto(
     val id: String,
-    val title: String,
+    @SerialName("title") val title: String,
     val description: String,
     @SerialName("startingDate") val startsAt: String,
     @SerialName("endingDate") val endsAt: String? = null,
-    val location: String? = null
+    @SerialName("address") val location: String? = null
 )
