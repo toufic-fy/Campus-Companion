@@ -7,6 +7,6 @@ data class EventDto(
     val title: String,
     val description: String,
     @SerialName("startingDate") val startsAt: String,
-    @SerialName("endingDate") val endsAt: String,
+    @SerialName("endingDate") val endsAt: String? = null,
     val location: String? = null
 )
