@@ -5,5 +5,5 @@ data class CampusEvent(
     val title: String,
     val description: String,
     val timeLabel: String,
-    val locationLabel: String
+    val locationLabel: String? = null
 )

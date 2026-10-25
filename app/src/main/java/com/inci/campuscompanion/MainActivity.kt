@@ -45,7 +45,7 @@ import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.model.Task
-import com.inci.campuscompanion.ui.MainViewModel
+import com.inci.campuscompanion.ui.view_model.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
