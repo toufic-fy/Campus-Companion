@@ -1,5 +1,12 @@
 package com.inci.campuscompanion
-
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.inci.campuscompanion.data.remote.EventsRemoteDataSource
+import com.inci.campuscompanion.data.remote.RetrofitClient
+import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.ui.events.EventsScreen
+import com.inci.campuscompanion.ui.events.EventsViewModel
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,32 +56,119 @@ import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val eventsViewModel: EventsViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(
+                modelClass: Class<T>
+            ): T {
+                require(
+                    modelClass.isAssignableFrom(
+                        EventsViewModel::class.java
+                    )
+                )
+
+                val remote = EventsRemoteDataSource(
+                    RetrofitClient.api
+                )
+
+                val repository = EventsRepository(remote)
+
+                return EventsViewModel(repository) as T
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
-        val preferencesRepository = UserPreferencesRepository(dataStore)
+        val preferencesRepository =
+            UserPreferencesRepository(dataStore)
 
         val viewModel: MainViewModel by viewModels {
-            MainViewModel.Factory(preferencesRepository, taskRepository)
+            MainViewModel.Factory(
+                preferencesRepository,
+                taskRepository
+            )
         }
 
         setContent {
-            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val isDarkMode by
+            viewModel.isDarkMode.collectAsStateWithLifecycle()
+
+            val tasks by
+            viewModel.tasks.collectAsStateWithLifecycle()
+
+            var showEvents by rememberSaveable {
+                mutableStateOf(false)
+            }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Scaffold(
+                    modifier = Modifier.fillMaxSize()
+                ) { innerPadding ->
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.SpaceEvenly
+                        ) {
+                            TextButton(
+                                onClick = { showEvents = false }
+                            ) {
+                                Text("Tasks")
+                            }
+
+                            TextButton(
+                                onClick = { showEvents = true }
+                            ) {
+                                Text("Events")
+                            }
+                        }
+
+                        HorizontalDivider()
+
+                        if (showEvents) {
+                            val eventsState by eventsViewModel
+                                .uiState
+                                .collectAsStateWithLifecycle()
+
+                            EventsScreen(
+                                state = eventsState,
+                                onRefresh =
+                                    eventsViewModel::loadEvents,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = {
+                                    viewModel.toggleDarkMode(it)
+                                },
+                                tasks = tasks,
+                                onToggleTask = {
+                                    viewModel.toggleTaskCompletion(it)
+                                },
+                                onAddTask = { title, description ->
+                                    viewModel.upsertTask(
+                                        title,
+                                        description
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
