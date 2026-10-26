@@ -38,7 +38,14 @@ fun EventsScreen(
             }
 
             is EventsUiState.Content -> {
-                EventsList(events = state.events)
+                if (state.events.isEmpty()) {
+                    Text(
+                        text = "Aucun event pour le moment",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    EventsList(events = state.events)
+                }
             }
 
             is EventsUiState.Error -> {
