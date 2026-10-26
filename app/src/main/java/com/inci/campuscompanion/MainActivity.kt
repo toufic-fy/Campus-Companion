@@ -1,5 +1,11 @@
 package com.inci.campuscompanion
 
+import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.data.remote.CampusApiFactory
+import com.inci.campuscompanion.data.remote.EventsRemoteDataSource
+import com.inci.campuscompanion.ui.EventsViewModel
+import com.inci.campuscompanion.ui.EventsScreen
+import androidx.compose.runtime.saveable.rememberSaveable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,20 +67,33 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsViewModel: EventsViewModel by viewModels {
+            EventsViewModel.Factory(EventsRepository(EventsRemoteDataSource(CampusApiFactory.create())))
+        }
+
         setContent {
+            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
+            var showEvents by rememberSaveable { mutableStateOf(true) }
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    Column(Modifier.fillMaxSize().padding(innerPadding)) {
+                        Row {
+                            TextButton(onClick = { showEvents = true }) { Text("Events") }
+                            TextButton(onClick = { showEvents = false }) { Text("Tasks") }
+                        }
+                        if (showEvents) EventsScreen(eventsState, eventsViewModel::refresh, Modifier.weight(1f))
+                        else TaskScreen(
+                            isDarkMode = isDarkMode,
+                            onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                            tasks = tasks,
+                            onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                            onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
