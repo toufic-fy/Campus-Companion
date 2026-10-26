@@ -40,6 +40,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.GET
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
@@ -61,18 +73,20 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsViewModel: EventsViewModel by viewModels {
+            EventsViewModel.Factory(EventsRepository(CampusApi.instance))
+        }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                    EventsScreen(
+                        state = eventsState,
+                        onRetry = { eventsViewModel.load() },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -272,5 +286,122 @@ fun TaskPreview() {
             onToggleTask = {},
             onAddTask = { _, _ -> }
         )
+    }
+}
+
+data class EventDto(
+    val id: String,
+    val name: String?,
+    val description: String?,
+    val address: String?,
+    val startingDate: String?,
+    val endingDate: String?,
+    val avatar: String?,
+    val createdAt: String?
+)
+
+interface CampusApi {
+    @GET("events/event")
+    suspend fun getEvents(): List<EventDto>
+
+    companion object {
+        private const val BASE_URL = "https://6ad70838f71f154ac4879fac.mockapi.io/api/v1/"
+
+        val instance: CampusApi by lazy {
+            Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(CampusApi::class.java)
+        }
+    }
+}
+
+data class CampusEvent(
+    val id: String,
+    val name: String,
+    val description: String,
+    val address: String,
+    val startingDate: String,
+    val endingDate: String
+)
+
+class EventsRepository(private val api: CampusApi) {
+
+    suspend fun fetchEvents(): Result<List<CampusEvent>> =
+        try {
+            Result.success(api.getEvents().map { it.toDomain() })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+}
+
+private fun EventDto.toDomain() = CampusEvent(
+    id = id,
+    name = name ?: "Untitled",
+    description = description ?: "",
+    address = address ?: "Unknown location",
+    startingDate = startingDate?.take(10) ?: "",
+    endingDate = endingDate?.take(10) ?: ""
+)
+
+sealed interface EventsUiState {
+    data object Loading : EventsUiState
+    data class Content(val events: List<CampusEvent>) : EventsUiState
+    data class Error(val message: String) : EventsUiState
+}
+
+class EventsViewModel(private val repository: EventsRepository) : ViewModel() {
+
+    private val _state = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
+    val state: StateFlow<EventsUiState> = _state
+
+    init { load() }
+
+    fun load() {
+        _state.value = EventsUiState.Loading
+        viewModelScope.launch {
+            repository.fetchEvents()
+                .onSuccess { _state.value = EventsUiState.Content(it) }
+                .onFailure { _state.value = EventsUiState.Error(it.message ?: "Unknown error") }
+        }
+    }
+
+    companion object {
+        fun Factory(repository: EventsRepository): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    EventsViewModel(repository) as T
+            }
+    }
+}
+
+@Composable
+fun EventsScreen(state: EventsUiState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when (state) {
+            is EventsUiState.Loading -> CircularProgressIndicator()
+
+            is EventsUiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onRetry) { Text("Retry") }
+            }
+
+            is EventsUiState.Content -> Column(Modifier.fillMaxSize()) {
+                Button(onClick = onRetry, modifier = Modifier.padding(16.dp)) { Text("Refresh") }
+                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
+                    items(state.events, key = { it.id }) { e ->
+                        Column(Modifier.padding(vertical = 8.dp)) {
+                            Text(e.name, style = MaterialTheme.typography.titleMedium)
+                            Text(e.address, style = MaterialTheme.typography.bodyMedium)
+                            Text("${e.startingDate} → ${e.endingDate}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+        }
     }
 }
