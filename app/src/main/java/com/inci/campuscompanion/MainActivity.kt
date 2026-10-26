@@ -46,6 +46,8 @@ import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
+import com.inci.campuscompanion.ui.EventsScreen
+import com.inci.campuscompanion.ui.EventsViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
@@ -60,21 +62,41 @@ class MainActivity : ComponentActivity() {
         val viewModel: MainViewModel by viewModels {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
+        val eventsViewModel: EventsViewModel by viewModels { EventsViewModel.Factory }
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
+            var showEvents by remember { mutableStateOf(false) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    Column(Modifier.padding(innerPadding)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            TextButton(onClick = { showEvents = false }, enabled = showEvents) {
+                                Text("Tasks")
+                            }
+                            TextButton(onClick = { showEvents = true }, enabled = !showEvents) {
+                                Text("Events")
+                            }
+                        }
+                        if (showEvents) {
+                            EventsScreen(eventsState, eventsViewModel::refresh, Modifier.weight(1f))
+                        } else {
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                                tasks = tasks,
+                                onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                                onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
