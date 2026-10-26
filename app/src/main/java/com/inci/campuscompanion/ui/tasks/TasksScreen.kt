@@ -54,7 +54,7 @@ fun TaskScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.padding().fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
