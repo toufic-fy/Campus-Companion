@@ -46,6 +46,11 @@ import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
+import com.inci.campuscompanion.ui.EventsScreen
+import com.inci.campuscompanion.ui.EventsViewModel
+import com.inci.campuscompanion.data.EventsRepository
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
@@ -61,20 +66,38 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsViewModel: EventsViewModel by viewModels {
+            EventsViewModel.Factory(EventsRepository())
+        }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val eventsState by eventsViewModel.uiState.collectAsStateWithLifecycle()
+            var selectedTab by remember { mutableStateOf(0) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    Column(modifier = Modifier.padding(innerPadding)) {
+                        TabRow(selectedTabIndex = selectedTab) {
+                            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Tasks") })
+                            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Events") })
+                        }
+                        if (selectedTab == 0) {
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                                tasks = tasks,
+                                onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                                onAddTask = { title, description -> viewModel.upsertTask(title, description) }
+                            )
+                        } else {
+                            EventsScreen(
+                                state = eventsState,
+                                onRefresh = { eventsViewModel.refresh() }
+                            )
+                        }
+                    }
                 }
             }
         }
