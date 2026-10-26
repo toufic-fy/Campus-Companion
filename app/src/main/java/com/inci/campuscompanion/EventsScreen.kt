@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,37 +30,54 @@ fun EventsScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        when (state) {
-            is EventsUiState.Loading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(onClick = onRetry) {
+                Text("Rafraîchir")
             }
+        }
 
-            is EventsUiState.Content -> {
-                if (state.events.isEmpty()) {
-                    Text(
-                        text = "Aucun event pour le moment",
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            when (state) {
+                is EventsUiState.Loading -> {
+                    CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
-                } else {
-                    EventsList(events = state.events)
                 }
-            }
 
-            is EventsUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(text = state.message)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = onRetry) {
-                        Text("Réessayer")
+                is EventsUiState.Content -> {
+                    if (state.events.isEmpty()) {
+                        Text(
+                            text = "Aucun event pour le moment",
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        EventsList(events = state.events)
+                    }
+                }
+
+                is EventsUiState.Error -> {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(text = state.message)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = onRetry) {
+                            Text("Réessayer")
+                        }
                     }
                 }
             }
