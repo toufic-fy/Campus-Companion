@@ -8,7 +8,7 @@ import com.inci.campuscompanion.model.Task
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface TaskDao {
+interface TaskDto {
     @Query("SELECT * FROM tasks ORDER BY id DESC")
     fun getTasks(): Flow<List<Task>>
 

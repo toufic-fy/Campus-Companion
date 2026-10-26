@@ -8,7 +8,7 @@ import com.inci.campuscompanion.model.Task
 
 @Database(entities = [Task::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
-    abstract fun taskDao(): TaskDao
+    abstract fun taskDao(): TaskDto
 
     companion object {
         @Volatile
