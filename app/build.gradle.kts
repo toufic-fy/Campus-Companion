@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
@@ -53,6 +54,12 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.kotlinx.coroutines.android)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.okhttp)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.serialization)
+    implementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
