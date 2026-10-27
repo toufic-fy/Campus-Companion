@@ -47,7 +47,12 @@ import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
-
+import androidx.compose.material3.Button
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.inci.campuscompanion.data.EventsModule
+import com.inci.campuscompanion.ui.EventsScreen
+import com.inci.campuscompanion.ui.EventsViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,15 +71,59 @@ class MainActivity : ComponentActivity() {
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
+
+                var showEvents by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                val eventsViewModel: EventsViewModel =
+                    viewModel(factory = EventsModule.factory)
+
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(onClick = { showEvents = false }) {
+                                Text("My Tasks")
+                            }
+
+                            Button(onClick = { showEvents = true }) {
+                                Text("Campus Events")
+                            }
+                        }
+
+                        if (showEvents) {
+
+                            EventsScreen(viewModel = eventsViewModel)
+
+                        } else {
+
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = {
+                                    viewModel.toggleDarkMode(it)
+                                },
+                                tasks = tasks,
+                                onToggleTask = {
+                                    viewModel.toggleTaskCompletion(it)
+                                },
+                                onAddTask = { title, description ->
+                                    viewModel.upsertTask(title, description)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
