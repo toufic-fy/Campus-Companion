@@ -17,13 +17,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -36,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -44,9 +49,31 @@ import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.data.network.CampusApi
+import com.inci.campuscompanion.data.network.EventsRemoteDataSource
+import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
+import com.inci.campuscompanion.ui.events.EventsScreen
+import com.inci.campuscompanion.ui.events.EventsViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.Retrofit
+
+// Set USE_MOCK_DATA = false to test real network requests, disconnecting emulator network, and error states.
+const val USE_MOCK_DATA = true
+
+enum class CampusDestination(val title: String, val icon: ImageVector) {
+    EVENTS("Events", Icons.Default.DateRange),
+    TASKS("Tasks", Icons.AutoMirrored.Filled.List)
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,24 +84,105 @@ class MainActivity : ComponentActivity() {
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
 
+        val okHttpClientBuilder = OkHttpClient.Builder()
+
+        if (USE_MOCK_DATA) {
+            val mockInterceptor = Interceptor { chain ->
+                val request = chain.request()
+                if (request.url.encodedPath.endsWith("events")) {
+                    val mockJson = """
+                        [
+                          {
+                            "id": "1",
+                            "title": "Android Network Workshop",
+                            "starts_at": "Today at 2:00 PM",
+                            "location": "Engineering Building Room 101"
+                          },
+                          {
+                            "id": "2",
+                            "title": "Campus Career Fair",
+                            "starts_at": "Tomorrow at 10:00 AM",
+                            "location": "Student Union Center"
+                          },
+                          {
+                            "id": "3",
+                            "title": "Campus Companion Hackathon",
+                            "starts_at": "Friday at 9:00 AM",
+                            "location": "Main Auditorium"
+                          }
+                        ]
+                    """.trimIndent()
+                    //val mockJson = "[]"
+                    Response.Builder()
+                        .request(request)
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(mockJson.toResponseBody("application/json".toMediaType()))
+                        .build()
+                } else {
+                    chain.proceed(request)
+                }
+            }
+            okHttpClientBuilder.addInterceptor(mockInterceptor)
+        }
+
+        val retrofit: Retrofit = Retrofit.Builder()
+            .baseUrl("https://6ad70838f71f154ac4879fac.mockapi.io/api/v1/")
+            .client(okHttpClientBuilder.build())
+            .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+        val api: CampusApi = retrofit.create(CampusApi::class.java)
+        val remoteDataSource = EventsRemoteDataSource(api)
+        val eventsRepository = EventsRepository(remoteDataSource)
+
         val viewModel: MainViewModel by viewModels {
             MainViewModel.Factory(preferencesRepository, taskRepository)
+        }
+        val eventsViewModel: EventsViewModel by viewModels {
+            EventsViewModel.Factory(eventsRepository)
         }
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            var currentDestination by remember { mutableStateOf(CampusDestination.EVENTS) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        NavigationBar {
+                            CampusDestination.entries.forEach { destination ->
+                                NavigationBarItem(
+                                    selected = currentDestination == destination,
+                                    onClick = { currentDestination = destination },
+                                    icon = { Icon(destination.icon, contentDescription = destination.title) },
+                                    label = { Text(destination.title) },
+                                )
+                            }
+                        }
+                    }
+                ) { innerPadding ->
+                    when (currentDestination) {
+                        CampusDestination.EVENTS -> {
+                            EventsRoute(
+                                viewModel = eventsViewModel,
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                        }
+                        CampusDestination.TASKS -> {
+                            TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                                tasks = tasks,
+                                onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                                onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                                modifier = Modifier.padding(innerPadding)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -273,4 +381,12 @@ fun TaskPreview() {
             onAddTask = { _, _ -> }
         )
     }
+}
+
+@Composable
+fun EventsRoute(
+    viewModel: EventsViewModel,
+    modifier: Modifier = Modifier
+) {
+    EventsScreen(viewModel = viewModel, modifier = modifier)
 }
