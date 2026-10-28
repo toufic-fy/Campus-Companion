@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion
 
 import android.os.Bundle
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -27,6 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,10 +49,12 @@ import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -58,23 +64,61 @@ class MainActivity : ComponentActivity() {
         val preferencesRepository = UserPreferencesRepository(dataStore)
 
         val viewModel: MainViewModel by viewModels {
-            MainViewModel.Factory(preferencesRepository, taskRepository)
+            MainViewModel.Factory(
+                preferencesRepository,
+                taskRepository
+            )
         }
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
+            var selectedTab by remember { mutableStateOf(0) }
+
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Scaffold(
+                    modifier = Modifier.fillMaxSize()
+                ) { innerPadding ->
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        TabRow(selectedTabIndex = selectedTab) {
+                            Tab(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                text = { Text("Tasks") }
+                            )
+
+                            Tab(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                text = { Text("Events") }
+                            )
+                        }
+
+                        when (selectedTab) {
+                            0 -> TaskScreen(
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = {
+                                    viewModel.toggleDarkMode(it)
+                                },
+                                tasks = tasks,
+                                onToggleTask = {
+                                    viewModel.toggleTaskCompletion(it)
+                                },
+                                onAddTask = { title, description ->
+                                    viewModel.upsertTask(title, description)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            1 -> EventsScreen()
+                        }
+                    }
                 }
             }
         }
@@ -94,6 +138,7 @@ fun TaskScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -105,6 +150,7 @@ fun TaskScreen(
                     text = "Dark Mode",
                     style = MaterialTheme.typography.titleMedium
                 )
+
                 Switch(
                     checked = isDarkMode,
                     onCheckedChange = onToggleDarkMode
@@ -140,7 +186,10 @@ fun TaskScreen(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Task"
+            )
         }
 
         if (showAddDialog) {
@@ -175,7 +224,9 @@ fun AddTaskDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -215,16 +266,16 @@ fun TaskRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = task.title,
                 maxLines = 1,
                 minLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
             Spacer(modifier = Modifier.height(4.dp))
+
             Text(
                 text = task.description,
                 maxLines = 2,
@@ -232,6 +283,7 @@ fun TaskRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
         Checkbox(
             checked = task.isCompleted,
             onCheckedChange = { onToggle() }
