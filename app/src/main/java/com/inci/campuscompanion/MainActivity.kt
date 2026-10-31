@@ -45,6 +45,12 @@ import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.inci.campuscompanion.ui.EventsUiState
+import com.inci.campuscompanion.ui.EventsViewModel
+import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
@@ -61,22 +67,58 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsViewModel: EventsViewModel by viewModels { EventsViewModel.Factory }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
+            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
+
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                CampusCompanionApp(
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = viewModel::toggleDarkMode,
+                    tasks = tasks,
+                    onToggleTask = viewModel::toggleTaskCompletion,
+                    onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                    eventsState = eventsState,
+                    onRefreshEvents = eventsViewModel::refresh
+                )
             }
+        }
+    }
+}
+
+object Routes {
+    const val TASKS = "tasks"
+    const val EVENTS = "events"
+}
+
+// The app root owns navigation. Screens expose callbacks and do not receive NavController.
+@Composable
+fun CampusCompanionApp(
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasks: List<Task>,
+    onToggleTask: (Task) -> Unit,
+    onAddTask: (String, String) -> Unit,
+    eventsState: EventsUiState,
+    onRefreshEvents: () -> Unit
+) {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = Routes.TASKS) {
+        composable(Routes.TASKS) {
+            Scaffold { padding ->
+                TaskScreen(
+                    isDarkMode, onToggleDarkMode, tasks, onToggleTask, onAddTask,
+                    modifier = Modifier.padding(padding),
+                    onOpenEvents = { navController.navigate(Routes.EVENTS) { launchSingleTop = true } }
+                )
+            }
+        }
+        composable(Routes.EVENTS) {
+            EventsScreen(eventsState, onRefreshEvents, onBack = { navController.popBackStack() })
         }
     }
 }
@@ -88,12 +130,14 @@ fun TaskScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenEvents: () -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+            TextButton(onClick = onOpenEvents) { Text("Open Events") }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
