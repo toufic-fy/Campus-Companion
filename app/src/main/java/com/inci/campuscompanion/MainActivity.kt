@@ -78,44 +78,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkMode by mainViewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by mainViewModel.tasks.collectAsStateWithLifecycle()
-            var selectedTab by remember { mutableIntStateOf(0) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Tasks") },
-                                label = { Text("Tasks") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.Default.Event, contentDescription = "Events") },
-                                label = { Text("Events") }
-                            )
-                        }
-                    }
-                ) { innerPadding ->
-                    when (selectedTab) {
-                        0 -> TaskScreen(
-                            isDarkMode = isDarkMode,
-                            onToggleDarkMode = { mainViewModel.toggleDarkMode(it) },
-                            tasks = tasks,
-                            onToggleTask = { mainViewModel.toggleTaskCompletion(it) },
-                            onAddTask = { title, description -> mainViewModel.upsertTask(title, description) },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                        1 -> EventsScreen(
-                            viewModel = eventsViewModel,
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
-                }
+                com.inci.campuscompanion.navigation.AppNavHost()
             }
         }
     }
