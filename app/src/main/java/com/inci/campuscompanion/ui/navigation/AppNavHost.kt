@@ -11,12 +11,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.inci.campuscompanion.TaskScreen
+import com.inci.campuscompanion.ui.EventsScreen
+import com.inci.campuscompanion.ui.EventsViewModel
 import com.inci.campuscompanion.ui.MainViewModel
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    eventsViewModel: EventsViewModel
 ) {
     NavHost(
         navController = navController,
@@ -39,7 +42,12 @@ fun AppNavHost(
             }
         }
         composable("events") {
-            EventsPlaceholderScreen(
+            val eventsUiState by eventsViewModel.uiState.collectAsStateWithLifecycle()
+
+            EventsScreen(
+                uiState = eventsUiState,
+                onRefresh = { eventsViewModel.loadEvents() },
+                onLoadMore = { eventsViewModel.loadMore() },
                 onBack = { navController.popBackStack() }
             )
         }

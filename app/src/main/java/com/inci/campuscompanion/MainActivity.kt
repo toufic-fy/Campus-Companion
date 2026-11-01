@@ -41,10 +41,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.data.AppDatabase
+import com.inci.campuscompanion.data.EventsRepository
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.data.remote.CampusApi
+import com.inci.campuscompanion.data.remote.EventsRemoteDataSource
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.ui.EventsViewModel
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.navigation.CampusApp
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -62,11 +66,19 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsRepository = EventsRepository(EventsRemoteDataSource(CampusApi.create()))
+        val eventsViewModel: EventsViewModel by viewModels {
+            EventsViewModel.Factory(eventsRepository)
+        }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                CampusApp(mainViewModel = viewModel)
+                CampusApp(
+                    mainViewModel = viewModel,
+                    eventsViewModel = eventsViewModel
+                )
             }
         }
     }

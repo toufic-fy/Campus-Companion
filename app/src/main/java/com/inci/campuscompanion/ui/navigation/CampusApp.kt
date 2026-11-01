@@ -2,13 +2,18 @@ package com.inci.campuscompanion.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
+import com.inci.campuscompanion.ui.EventsViewModel
 import com.inci.campuscompanion.ui.MainViewModel
 
 @Composable
-fun CampusApp(mainViewModel: MainViewModel) {
+fun CampusApp(
+    mainViewModel: MainViewModel,
+    eventsViewModel: EventsViewModel
+) {
     val navController = rememberNavController()
     AppNavHost(
         navController = navController,
-        mainViewModel = mainViewModel
+        mainViewModel = mainViewModel,
+        eventsViewModel = eventsViewModel
     )
 }
