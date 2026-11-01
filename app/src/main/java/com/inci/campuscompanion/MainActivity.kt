@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion
 
 import android.os.Bundle
@@ -19,13 +20,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,13 +41,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.data.remote.EventsRemoteDataSource
+import com.inci.campuscompanion.data.remote.RetrofitClient
+import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
+import com.inci.campuscompanion.ui.events.EventsViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
 class MainActivity : ComponentActivity() {
@@ -61,19 +69,30 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val eventsRepository = EventsRepository(
+            EventsRemoteDataSource(RetrofitClient.api)
+        )
+
+        val eventsViewModel: EventsViewModel by viewModels {
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return EventsViewModel(eventsRepository) as T
+                }
+            }
+        }
+
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TaskScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        modifier = Modifier.padding(innerPadding)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    CampusApp(
+                        viewModel = viewModel,
+                        eventsViewModel = eventsViewModel
                     )
                 }
             }
@@ -88,6 +107,7 @@ fun TaskScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
+    onOpenEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -112,6 +132,13 @@ fun TaskScreen(
             }
 
             HorizontalDivider()
+
+            Button(
+                onClick = onOpenEvents,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text("Campus events")
+            }
 
             if (tasks.isEmpty()) {
                 Box(
@@ -140,7 +167,10 @@ fun TaskScreen(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Task"
+            )
         }
 
         if (showAddDialog) {
@@ -215,9 +245,7 @@ fun TaskRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = task.title,
                 maxLines = 1,
@@ -270,7 +298,8 @@ fun TaskPreview() {
                 Task(2, "Task 2", "Description 2", true)
             ),
             onToggleTask = {},
-            onAddTask = { _, _ -> }
+            onAddTask = { _, _ -> },
+            onOpenEvents = {}
         )
     }
 }
