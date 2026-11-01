@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.inci.campuscompanion.navigation.AppNavHost
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -18,10 +20,13 @@ class NavigationTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun testNavigationTasksToEvents() {
+    fun testNavigationTasksToEventsAndBackToTasks() {
+        lateinit var navController: NavHostController
+
         composeTestRule.setContent {
+            navController = rememberNavController()
             CampusCompanionTheme {
-                AppNavHost()
+                AppNavHost(navController = navController)
             }
         }
 
@@ -34,5 +39,14 @@ class NavigationTest {
 
         // Verify Events placeholder destination is displayed
         composeTestRule.onNodeWithText("Events").assertIsDisplayed()
+
+        // Pop back stack to return to Tasks Screen
+        composeTestRule.runOnIdle {
+            navController.popBackStack()
+        }
+
+        // Assert Tasks Screen is displayed again
+        composeTestRule.onNodeWithText("Tasks").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Open Events").assertIsDisplayed()
     }
 }
