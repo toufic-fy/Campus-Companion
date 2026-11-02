@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.converter.gson)
+    implementation(libs.androidx.navigation.compose)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
