@@ -46,7 +46,7 @@ fun TasksScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    onNavigateToEvents: () -> Unit,
+    onOpenEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -72,10 +72,10 @@ fun TasksScreen(
                     )
                 }
 
-                Button(onClick = onNavigateToEvents) {
+                Button(onClick = onOpenEvents) {
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Events")
+                    Text("Campus events")
                 }
             }
 
@@ -239,7 +239,7 @@ fun TasksScreenPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            onNavigateToEvents = {}
+            onOpenEvents = {}
         )
     }
 }
