@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,6 +46,7 @@ import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import com.inci.campuscompanion.work.EventsRefreshScheduler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,11 +56,21 @@ fun EventsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    val context = LocalContext.current
+    val workInfos by EventsRefreshScheduler.workInfo(context).collectAsState(initial = emptyList())
+    val workState = workInfos.firstOrNull()?.state
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
                 actions = {
+                    IconButton(onClick = { EventsRefreshScheduler.enqueue(context) }) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Refresh in background"
+                        )
+                    }
                     IconButton(onClick = { viewModel.loadEvents() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -69,11 +82,22 @@ fun EventsScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        EventsContent(
-            uiState = uiState,
-            onRetry = { viewModel.loadEvents() },
-            modifier = Modifier.padding(innerPadding)
-        )
+        Column(modifier = Modifier.padding(innerPadding)) {
+            if (workState != null) {
+                Text(
+                    text = "Background refresh: $workState",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            EventsContent(
+                uiState = uiState,
+                onRetry = { viewModel.loadEvents() }
+            )
+        }
     }
 }
 
