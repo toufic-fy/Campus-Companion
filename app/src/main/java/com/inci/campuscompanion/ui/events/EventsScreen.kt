@@ -44,11 +44,13 @@ import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
     viewModel: CampusEventViewModel,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -57,6 +59,16 @@ fun EventsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.loadEvents() }) {
                         Icon(
