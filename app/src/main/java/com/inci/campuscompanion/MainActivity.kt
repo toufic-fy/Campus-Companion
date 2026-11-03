@@ -34,7 +34,10 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
-        val eventsRepository = EventsRepository(EventsRemoteDataSource(RetrofitClient.campusApi))
+        val eventsRepository = EventsRepository(
+            EventsRemoteDataSource(RetrofitClient.campusApi),
+            database.eventDao()
+        )
         val eventViewModel: CampusEventViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
