@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
@@ -44,21 +45,32 @@ import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import com.inci.campuscompanion.ui.view_model.RefreshUi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
     viewModel: CampusEventViewModel,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val refreshStatus by viewModel.refreshStatus.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 actions = {
-                    IconButton(onClick = { viewModel.loadEvents() }) {
+                    IconButton(onClick = { viewModel.refreshEvents() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh events"
@@ -69,12 +81,38 @@ fun EventsScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        EventsContent(
-            uiState = uiState,
-            onRetry = { viewModel.loadEvents() },
-            modifier = Modifier.padding(innerPadding)
-        )
+        Column(modifier = Modifier.padding(innerPadding)) {
+            RefreshStatusText(status = refreshStatus)
+            EventsContent(
+                uiState = uiState,
+                onRetry = { viewModel.refreshEvents() },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
+}
+
+@Composable
+fun RefreshStatusText(
+    status: RefreshUi,
+    modifier: Modifier = Modifier
+) {
+    val text = when (status) {
+        RefreshUi.Idle -> return
+        RefreshUi.Queued -> "Refresh queued, waiting for a network connection"
+        RefreshUi.Refreshing -> "Refreshing events..."
+        RefreshUi.Current -> "Events are up to date"
+        RefreshUi.Failed -> "Refresh failed"
+    }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
