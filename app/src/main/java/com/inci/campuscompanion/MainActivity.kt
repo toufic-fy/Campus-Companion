@@ -19,6 +19,13 @@ import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.ui.tasks.TasksScreen
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.MainViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
+import com.inci.campuscompanion.data.remote.api.RetrofitClient
+import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.ui.navigation.CampusApp
+import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,25 +39,21 @@ class MainActivity : ComponentActivity() {
         val viewModel: MainViewModel by viewModels {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
-
+        val eventsRepository = EventsRepository(EventsRemoteDataSource(RetrofitClient.campusApi))
+        val eventsViewModel: CampusEventViewModel by viewModels {
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return CampusEventViewModel(eventsRepository) as T
+                }
+            }
+        }
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TasksScreen(
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                        tasks = tasks,
-                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                        onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                        onNavigateToEvents = {
-                            startActivity(Intent(this, EventActivity::class.java))
-                        },
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                CampusApp(viewModel = viewModel, eventsViewModel = eventsViewModel)
             }
         }
     }
