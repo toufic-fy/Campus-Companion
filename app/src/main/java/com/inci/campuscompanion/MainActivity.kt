@@ -9,12 +9,10 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.WorkManager
 import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.local.pref.dataStore
-import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
-import com.inci.campuscompanion.data.remote.api.RetrofitClient
-import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.ui.navigation.CampusApp
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -34,15 +32,13 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
-        val eventsRepository = EventsRepository(
-            EventsRemoteDataSource(RetrofitClient.campusApi),
-            database.eventDao()
-        )
+        val eventsRepository = (application as CampusApplication).eventsRepository
+        val workManager = WorkManager.getInstance(applicationContext)
         val eventViewModel: CampusEventViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return CampusEventViewModel(eventsRepository) as T
+                    return CampusEventViewModel(eventsRepository, workManager) as T
                 }
             }
         }
