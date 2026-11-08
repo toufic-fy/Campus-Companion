@@ -16,15 +16,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.inci.campuscompanion.data.AppDatabase
-import com.inci.campuscompanion.data.TaskRepository
-import com.inci.campuscompanion.data.UserPreferencesRepository
-import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.data.local.AppDatabase
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
+import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.model.Task
-import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskScreen
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import com.inci.campuscompanion.ui.view_model.MainViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
