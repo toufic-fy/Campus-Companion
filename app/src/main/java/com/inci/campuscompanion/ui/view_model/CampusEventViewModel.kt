@@ -1,6 +1,7 @@
 package com.inci.campuscompanion.ui.view_model
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.model.CampusEvent
@@ -33,6 +34,17 @@ class CampusEventViewModel(
                 _uiState.value = EventsUiState.Success(events)
             } catch (e: Exception) {
                 _uiState.value = EventsUiState.Error(e.localizedMessage ?: "Failed to load events")
+            }
+        }
+    }
+
+    companion object{
+        fun Factory(
+            eventsRepository: EventsRepository
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return CampusEventViewModel(eventsRepository) as T
             }
         }
     }

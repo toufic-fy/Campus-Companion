@@ -19,12 +19,15 @@ import androidx.navigation.compose.rememberNavController
 import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.local.pref.dataStore
+import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
+import com.inci.campuscompanion.data.remote.api.RetrofitClient
+import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
-import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.events.EventsScreen
-import com.inci.campuscompanion.ui.tasks.TaskScreen
+import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
-import com.inci.campuscompanion.ui.view_model.MainViewModel
+import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
+import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,21 +37,28 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
+        val eventsRepository = EventsRepository(
+            EventsRemoteDataSource(RetrofitClient.campusApi)
+        )
 
-        val viewModel: MainViewModel by viewModels {
-            MainViewModel.Factory(preferencesRepository, taskRepository)
+        val tasksViewModel: TasksViewModel by viewModels {
+            TasksViewModel.Factory(preferencesRepository, taskRepository)
+        }
+
+        val eventsViewModel: CampusEventViewModel by viewModels {
+            CampusEventViewModel.Factory(eventsRepository)
         }
 
         setContent {
-            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val isDarkMode by tasksViewModel.isDarkMode.collectAsStateWithLifecycle()
 
-            CampusCompanionTheme {
+            CampusCompanionTheme(darkTheme = isDarkMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     CampusApp(
-                        isDarkMode,
-                        viewModel,
-                        tasks,
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = tasksViewModel::toggleDarkMode,
+                        tasksViewModel = tasksViewModel,
+                        eventsViewModel = eventsViewModel,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -60,44 +70,48 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CampusApp(
     isDarkMode: Boolean,
-    viewModel: MainViewModel,
-    tasks: List<Task>,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasksViewModel: TasksViewModel,
+    eventsViewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
-    AppNavHost(navController = navController, isDarkMode, viewModel, tasks, modifier)
+    AppNavHost(
+        navController = navController,
+        isDarkMode = isDarkMode,
+        onToggleDarkMode = onToggleDarkMode,
+        tasksViewModel = tasksViewModel,
+        eventsViewModel = eventsViewModel,
+        modifier = modifier
+    )
 }
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
     isDarkMode: Boolean,
-    viewModel: MainViewModel,
-    tasks: List<Task>,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasksViewModel: TasksViewModel,
+    eventsViewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = "tasks"
+        startDestination = "tasks",
+        modifier = modifier
     ) {
         composable("tasks") {
-            TaskScreen(
+            TaskRoute(
+                viewModel = tasksViewModel,
                 isDarkMode = isDarkMode,
-                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                tasks = tasks,
-                onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                modifier = modifier,
+                onToggleDarkMode = onToggleDarkMode,
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
         composable("events") {
             EventsScreen(
-                modifier = modifier,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel = eventsViewModel
             )
         }
     }
 }
-
-

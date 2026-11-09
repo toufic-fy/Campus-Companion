@@ -3,7 +3,6 @@ package com.inci.campuscompanion.ui.tasks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +23,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,23 +36,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
 @Composable
-fun TaskScreen(
+fun TaskRoute(
+    viewModel: TasksViewModel,
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    onNavigateEvents: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+
+    TaskContent(
+        isDarkMode = isDarkMode,
+        onToggleDarkMode = onToggleDarkMode,
+        tasks = tasks,
+        onToggleTask = viewModel::toggleTaskCompletion,
+        onAddTask = viewModel::upsertTask,
+        onNavigateEvents = onNavigateEvents,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    modifier: Modifier = Modifier,
-    onNavigateEvents: () -> Unit
+    onNavigateEvents: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-
     var showAddDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.padding().fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
@@ -73,7 +93,7 @@ fun TaskScreen(
                     onCheckedChange = onToggleDarkMode
                 )
                 Button(
-                    onClick = { onNavigateEvents() }
+                    onClick = onNavigateEvents
                 ) {
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
@@ -232,7 +252,7 @@ fun TaskList(
 @Composable
 fun TaskPreview() {
     CampusCompanionTheme(darkTheme = false) {
-        TaskScreen(
+        TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
             tasks = listOf(
@@ -241,7 +261,6 @@ fun TaskPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            modifier = Modifier.padding(16.dp),
             onNavigateEvents = {}
         )
     }
