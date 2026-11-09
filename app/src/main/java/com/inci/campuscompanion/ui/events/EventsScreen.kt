@@ -28,17 +28,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.WorkInfo
 import com.inci.campuscompanion.R
 import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -52,28 +54,57 @@ fun EventsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+
+    val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
+    val workStateLabel = workInfo?.state?.name
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
                 actions = {
-                    IconButton(onClick = { viewModel.loadEvents() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh events"
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(end = 8.dp),
+                            strokeWidth = 2.dp
                         )
+                    } else {
+                        IconButton(onClick = { viewModel.loadEvents() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh events"
+                            )
+                        }
                     }
                 }
             )
         },
         modifier = modifier
     ) { innerPadding ->
-        EventsContent(
-            uiState = uiState,
-            onRetry = { viewModel.loadEvents() },
-            modifier = Modifier.padding(innerPadding)
-        )
+        Column(modifier = Modifier.padding(innerPadding)) {
+            if (workStateLabel != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "WorkManager Status: $workStateLabel",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            EventsContent(
+                uiState = uiState,
+                onRetry = { viewModel.loadEvents() },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 

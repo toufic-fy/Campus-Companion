@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.work.WorkManager
 import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.local.pref.dataStore
@@ -28,6 +29,7 @@ import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
+import com.inci.campuscompanion.worker.RefreshEventWorker
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,8 +48,13 @@ class MainActivity : ComponentActivity() {
         }
 
         val eventsViewModel: CampusEventViewModel by viewModels {
-            CampusEventViewModel.Factory(eventsRepository)
+            CampusEventViewModel.Factory(
+                eventsRepository = eventsRepository,
+                workManager = WorkManager.getInstance(applicationContext)
+            )
         }
+
+        RefreshEventWorker.enqueueUniquePeriodicWork(applicationContext)
 
         setContent {
             val isDarkMode by tasksViewModel.isDarkMode.collectAsStateWithLifecycle()
