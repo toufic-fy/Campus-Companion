@@ -36,17 +36,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
 @Composable
-fun TasksScreen(
+fun TaskRoute(
+    viewModel: TasksViewModel,
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    onNavigateEvents: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+
+    TaskContent(
+        isDarkMode = isDarkMode,
+        onToggleDarkMode = onToggleDarkMode,
+        tasks = tasks,
+        onToggleTask = viewModel::toggleTaskCompletion,
+        onAddTask = viewModel::upsertTask,
+        onNavigateEvents = onNavigateEvents,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    onNavigateToEvents: () -> Unit,
+    onNavigateEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -60,19 +83,18 @@ fun TasksScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Dark Mode",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = isDarkMode,
-                        onCheckedChange = onToggleDarkMode
-                    )
-                }
+                Text(
+                    text = "Dark Mode",
+                    style = MaterialTheme.typography.titleMedium
+                )
 
-                Button(onClick = onNavigateToEvents) {
+                Switch(
+                    checked = isDarkMode,
+                    onCheckedChange = onToggleDarkMode
+                )
+                Button(
+                    onClick = onNavigateEvents
+                ) {
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
@@ -228,9 +250,9 @@ fun TaskList(
 
 @Preview(showBackground = true)
 @Composable
-fun TasksScreenPreview() {
+fun TaskPreview() {
     CampusCompanionTheme(darkTheme = false) {
-        TasksScreen(
+        TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
             tasks = listOf(
@@ -239,7 +261,7 @@ fun TasksScreenPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            onNavigateToEvents = {}
+            onNavigateEvents = {}
         )
     }
 }
