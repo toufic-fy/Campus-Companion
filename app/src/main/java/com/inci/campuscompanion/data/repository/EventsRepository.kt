@@ -22,6 +22,8 @@ class EventsRepository(private val remoteDataSource: EventsRemoteDataSource) {
             )
         }
 
+    suspend fun refreshEvents(): List<CampusEvent> = getEvents()
+
     private fun formatTimeLabel(startsAt: String, endsAt: String?): String {
         val startDate = parseIsoDate(startsAt)
         val endDate = endsAt?.let { parseIsoDate(it) }
