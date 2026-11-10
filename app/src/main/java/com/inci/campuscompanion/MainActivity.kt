@@ -28,6 +28,8 @@ import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
+import androidx.work.WorkManager
+import com.inci.campuscompanion.worker.RefreshEventsWorker
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,9 +47,13 @@ class MainActivity : ComponentActivity() {
             TasksViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        val workManager = WorkManager.getInstance(applicationContext)
+
         val eventsViewModel: CampusEventViewModel by viewModels {
-            CampusEventViewModel.Factory(eventsRepository)
+            CampusEventViewModel.Factory(eventsRepository, workManager)
         }
+
+        RefreshEventsWorker.schedulePeriodicRefresh(workManager)
 
         setContent {
             val isDarkMode by tasksViewModel.isDarkMode.collectAsStateWithLifecycle()
