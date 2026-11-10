@@ -44,6 +44,8 @@ import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import androidx.compose.material3.LinearProgressIndicator
+import com.inci.campuscompanion.ui.view_model.RefreshStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,13 +54,17 @@ fun EventsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val refreshStatus by viewModel.refreshStatus.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
                 actions = {
-                    IconButton(onClick = { viewModel.loadEvents() }) {
+                    IconButton(
+                        onClick = { viewModel.refreshInBackground() },
+                        enabled = refreshStatus != RefreshStatus.RUNNING
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh events"
@@ -69,13 +75,40 @@ fun EventsScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        EventsContent(
-            uiState = uiState,
-            onRetry = { viewModel.loadEvents() },
-            modifier = Modifier.padding(innerPadding)
-        )
+        Column(modifier = Modifier.padding(innerPadding)) {
+            RefreshStatusBanner(status = refreshStatus)
+            EventsContent(
+                uiState = uiState,
+                onRetry = { viewModel.loadEvents() },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
+
+@Composable
+fun RefreshStatusBanner(status: RefreshStatus) {
+    when (status) {
+        RefreshStatus.RUNNING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        RefreshStatus.WAITING -> Text(
+            text = "Refresh is waiting for a network connection...",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        RefreshStatus.FAILED -> Text(
+            text = "Background refresh failed. Tap refresh to try again.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        RefreshStatus.IDLE -> Unit
+    }
+}
+
 
 @Composable
 fun EventsContent(
