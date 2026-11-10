@@ -72,3 +72,5 @@ class TasksViewModel(
             }
     }
 }
+
+typealias MainViewModel = TasksViewModel

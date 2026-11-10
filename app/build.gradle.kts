@@ -40,6 +40,7 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
@@ -57,6 +58,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.converter.gson)
+    implementation("androidx.navigation:navigation-compose:2.10.2")
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

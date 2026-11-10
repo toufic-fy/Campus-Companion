@@ -42,6 +42,27 @@ import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
 @Composable
+fun TasksScreen(
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasks: List<Task>,
+    onToggleTask: (Task) -> Unit,
+    onAddTask: (String, String) -> Unit,
+    onNavigateToEvents: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TaskContent(
+        isDarkMode = isDarkMode,
+        onToggleDarkMode = onToggleDarkMode,
+        tasks = tasks,
+        onToggleTask = onToggleTask,
+        onAddTask = onAddTask,
+        onNavigateEvents = onNavigateToEvents,
+        modifier = modifier
+    )
+}
+
+@Composable
 fun TaskRoute(
     viewModel: TasksViewModel,
     isDarkMode: Boolean,
