@@ -13,6 +13,7 @@ import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
+import com.inci.campuscompanion.data.local.AppDatabase
 
 class EventActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +21,10 @@ class EventActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val remoteDataSource = EventsRemoteDataSource(RetrofitClient.campusApi)
-        val repository = EventsRepository(remoteDataSource)
+        val repository = EventsRepository(
+            remoteDataSource,
+            AppDatabase.getDatabase(applicationContext).eventDao()
+        )
 
         val viewModel: CampusEventViewModel by viewModels {
             object : ViewModelProvider.Factory {

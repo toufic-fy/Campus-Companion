@@ -13,12 +13,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-
+import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.tasks.TasksScreen
+import com.inci.campuscompanion.ui.events.EventsScreen
+import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
+import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
+import com.inci.campuscompanion.data.remote.api.RetrofitClient
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,12 +39,20 @@ fun AppNavHost(
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit
 ) {
+
+    val context = LocalContext.current
     NavHost(
         navController = navController,
         startDestination = "tasks"
     ) {
+
+        // TASKS SCREEN
         composable("tasks") {
-            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+
+            Scaffold(
+                modifier = Modifier.fillMaxSize()
+            ) { innerPadding ->
+
                 TasksScreen(
                     isDarkMode = isDarkMode,
                     onToggleDarkMode = onToggleDarkMode,
@@ -50,8 +67,38 @@ fun AppNavHost(
             }
         }
 
+        // EVENTS SCREEN
         composable("events") {
+
+            val eventsViewModel: CampusEventViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(
+                        modelClass: Class<T>
+                    ): T {
+
+                        val remoteDataSource =
+                            EventsRemoteDataSource(
+                                RetrofitClient.campusApi
+                            )
+
+                        val repository =
+                            EventsRepository(
+                                remoteDataSource,
+                                AppDatabase.getDatabase(context).eventDao()
+                            )
+
+
+                        return CampusEventViewModel(
+                            repository
+                        ) as T
+                    }
+                }
+            )
+
             Scaffold(
+                modifier = Modifier.fillMaxSize(),
                 topBar = {
                     TopAppBar(
                         title = {
@@ -64,7 +111,8 @@ fun AppNavHost(
                                 }
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    imageVector =
+                                        Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back"
                                 )
                             }
@@ -72,9 +120,12 @@ fun AppNavHost(
                     )
                 }
             ) { innerPadding ->
-                Text(
-                    text = "Events Screen",
-                    modifier = Modifier.padding(innerPadding)
+
+                EventsScreen(
+                    viewModel = eventsViewModel,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
                 )
             }
         }

@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
@@ -31,10 +32,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,13 +55,26 @@ fun EventsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val refreshStatus by viewModel.refreshStatus.collectAsState()
+
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.observeRefreshStatus(context)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Campus Events") },
+                title = {
+                    Text("Campus Events")
+                },
                 actions = {
-                    IconButton(onClick = { viewModel.loadEvents() }) {
+                    IconButton(
+                        onClick = {
+                            viewModel.scheduleBackgroundRefresh(context)
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh events"
@@ -69,11 +85,27 @@ fun EventsScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        EventsContent(
-            uiState = uiState,
-            onRetry = { viewModel.loadEvents() },
-            modifier = Modifier.padding(innerPadding)
-        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+
+            Text(
+                text = "Background refresh: $refreshStatus",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(16.dp)
+            )
+
+            EventsContent(
+                uiState = uiState,
+                onRetry = {
+                    viewModel.loadEvents()
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -88,13 +120,18 @@ fun EventsContent(
         contentAlignment = Alignment.Center
     ) {
         when (uiState) {
+
             is EventsUiState.Loading -> {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+
                     Text(
                         text = "Fetching events...",
                         style = MaterialTheme.typography.bodyMedium,
@@ -116,7 +153,11 @@ fun EventsContent(
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.outline
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Spacer(
+                            modifier = Modifier.height(16.dp)
+                        )
+
                         Text(
                             text = "No upcoming events found.",
                             style = MaterialTheme.typography.titleMedium,
@@ -150,14 +191,24 @@ fun EventsContent(
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.error
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
                     Text(
                         text = uiState.message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onRetry) {
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+
+                    Button(
+                        onClick = onRetry
+                    ) {
                         Text("Retry")
                     }
                 }
@@ -173,7 +224,9 @@ fun EventCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -183,6 +236,7 @@ fun EventCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+
             Text(
                 text = event.title,
                 style = MaterialTheme.typography.titleMedium,
@@ -191,17 +245,24 @@ fun EventCard(
             )
 
             if (event.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
+
                 Text(
                     text = event.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = 0.8f
+                    )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
-            // Time Row
+            // Event time
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -211,7 +272,11 @@ fun EventCard(
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
                 Text(
                     text = event.timeLabel,
                     style = MaterialTheme.typography.labelLarge,
@@ -219,9 +284,11 @@ fun EventCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(
+                modifier = Modifier.height(6.dp)
+            )
 
-            // Location Row
+            // Event location
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -231,9 +298,14 @@ fun EventCard(
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
                 Text(
-                    text = event.locationLabel ?: stringResource(R.string.tba),
+                    text = event.locationLabel
+                        ?: stringResource(R.string.tba),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
