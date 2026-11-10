@@ -3,6 +3,7 @@ package com.inci.campuscompanion.ui.view_model
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -129,6 +130,17 @@ class CampusEventViewModel(
                     WorkInfo.State.CANCELLED -> "Cancelled"
                     else -> "Idle"
                 }
+            }
+        }
+    }
+
+    companion object{
+        fun Factory(
+            eventsRepository: EventsRepository
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return CampusEventViewModel(eventsRepository) as T
             }
         }
     }

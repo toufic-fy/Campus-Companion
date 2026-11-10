@@ -1,4 +1,3 @@
-
 package com.inci.campuscompanion.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
