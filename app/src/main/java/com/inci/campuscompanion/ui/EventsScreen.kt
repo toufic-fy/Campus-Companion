@@ -3,6 +3,7 @@ package com.inci.campuscompanion.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,9 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,19 +31,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.work.WorkInfo
 import com.inci.campuscompanion.model.CampusEvent
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.layout.Row
 
 @Composable
 fun EventsScreen(
     modifier: Modifier = Modifier,
+    onNavigateBack: (() -> Unit)? = null,
     viewModel: EventsViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val workInfo by viewModel.refreshWorkInfo.collectAsState(initial = null)
 
     Column(
         modifier = modifier
@@ -49,20 +53,49 @@ fun EventsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Campus Events",
-                style = MaterialTheme.typography.headlineMedium
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onNavigateBack != null) {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Tasks"
+                        )
+                    }
+                }
+                Text(
+                    text = "Campus Events",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
 
-            TextButton(
-                onClick = { viewModel.loadEvents() }
+            IconButton(
+                onClick = {
+                    viewModel.scheduleRefreshWork()
+                    viewModel.loadEvents()
+                }
             ) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = "Refresh events"
                 )
-                Text("Refresh")
             }
+        }
+
+        workInfo?.let { info ->
+            val statusText = when (info.state) {
+                WorkInfo.State.ENQUEUED -> "Background Work Status: Queued"
+                WorkInfo.State.RUNNING -> "Background Work Status: Running..."
+                WorkInfo.State.SUCCEEDED -> "Background Work Status: Finished (Success)"
+                WorkInfo.State.FAILED -> "Background Work Status: Finished (Failed)"
+                WorkInfo.State.BLOCKED -> "Background Work Status: Blocked (Waiting for Network)"
+                WorkInfo.State.CANCELLED -> "Background Work Status: Cancelled"
+            }
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
         }
 
         Spacer(modifier = Modifier.padding(8.dp))

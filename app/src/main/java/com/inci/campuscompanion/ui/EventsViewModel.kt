@@ -1,16 +1,29 @@
 
 package com.inci.campuscompanion.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.inci.campuscompanion.data.EventsRepository
 import com.inci.campuscompanion.data.remote.CampusApi
+import com.inci.campuscompanion.worker.RefreshEventsWorker
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class EventsViewModel : ViewModel() {
+class EventsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val workManager = WorkManager.getInstance(application)
+
+    val refreshWorkInfo: Flow<WorkInfo?> = workManager
+        .getWorkInfosForUniqueWorkFlow(RefreshEventsWorker.WORK_NAME)
+        .map { list -> list.firstOrNull() }
 
     private val repository = EventsRepository(
         CampusApi.create()
@@ -23,6 +36,15 @@ class EventsViewModel : ViewModel() {
 
     init {
         loadEvents()
+    }
+
+    fun scheduleRefreshWork() {
+        val workRequest = RefreshEventsWorker.buildWorkRequest()
+        workManager.enqueueUniqueWork(
+            RefreshEventsWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
     fun loadEvents() {

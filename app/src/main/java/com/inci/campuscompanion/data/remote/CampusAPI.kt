@@ -13,6 +13,7 @@ interface CampusApi {
         @Query("limit") limit: Int = 5
     ): List<EventDto>
 
+
     companion object {
         fun create(): CampusApi {
             return Retrofit.Builder()

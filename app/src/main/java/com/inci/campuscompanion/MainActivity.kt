@@ -5,46 +5,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
@@ -53,6 +31,11 @@ import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+
+private object AppRoutes {
+    const val TASKS = "tasks"
+    const val EVENTS = "events"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,44 +53,49 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
-            var selectedTab by remember { mutableIntStateOf(0) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.Default.Checklist, contentDescription = "Tasks") },
-                                label = { Text("Tasks") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.Default.Event, contentDescription = "Events") },
-                                label = { Text("Events") }
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                ) { innerPadding ->
-                    if (selectedTab == 0) {
-                        TaskScreen(
-                            isDarkMode = isDarkMode,
-                            onToggleDarkMode = { viewModel.toggleDarkMode(it) },
-                            tasks = tasks,
-                            onToggleTask = { viewModel.toggleTaskCompletion(it) },
-                            onAddTask = { title, description -> viewModel.upsertTask(title, description) },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    } else {
-                        EventsScreen(
-                            modifier = Modifier.padding(innerPadding)
-                        )
+                val navController = rememberNavController()
+                AppNavigation(
+                    navController = navController,
+                    isDarkMode = isDarkMode,
+                    tasks = tasks,
+                    onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                    onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                    onAddTask = { title, description ->
+                        viewModel.upsertTask(title, description)
                     }
-                }
+                )
             }
+        }
+    }
+}
+
+/** NavHost starts on Tasks and manages the back stack. */
+@Composable
+fun AppNavigation(
+    navController: NavHostController,
+    isDarkMode: Boolean,
+    tasks: List<Task>,
+    onToggleDarkMode: (Boolean) -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onAddTask: (String, String) -> Unit
+) {
+    NavHost(navController = navController, startDestination = AppRoutes.TASKS) {
+        composable(AppRoutes.TASKS) {
+            TaskScreen(
+                isDarkMode = isDarkMode,
+                onToggleDarkMode = onToggleDarkMode,
+                tasks = tasks,
+                onToggleTask = onToggleTask,
+                onAddTask = onAddTask,
+                onOpenEvents = { navController.navigate(AppRoutes.EVENTS) }
+            )
+        }
+        composable(AppRoutes.EVENTS) {
+            EventsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }
@@ -119,12 +107,40 @@ fun TaskScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
+    onOpenEvents: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        bottomBar = {
+            BottomAppBar(
+                actions = {
+                    Button(
+                        onClick = onOpenEvents,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Event, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Events")
+                    }
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true }
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
+                    }
+                }
+            )
+        },
+        modifier = modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -163,15 +179,6 @@ fun TaskScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-        }
-
-        FloatingActionButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
         }
 
         if (showAddDialog) {
