@@ -8,8 +8,26 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import com.inci.campuscompanion.MainActivity
 import com.inci.campuscompanion.R
+import com.inci.campuscompanion.model.CampusEvent
 
 class EventNotificationHelper(private val context: Context) {
+
+    fun showNewEvents(events: List<CampusEvent>) {
+        if (events.isEmpty()) return
+
+        val title = if (events.size == 1) {
+            "New campus event"
+        } else {
+            "${events.size} new campus events"
+        }
+        val text = events.joinToString(separator = ", ") { it.title }
+
+        post(
+            notificationId = NEW_EVENTS_NOTIFICATION_ID,
+            title = title,
+            text = text
+        )
+    }
 
     fun showTestNotification() {
         post(
@@ -58,5 +76,6 @@ class EventNotificationHelper(private val context: Context) {
     companion object {
         const val EVENTS_DEEP_LINK = "campus://events"
         private const val TEST_NOTIFICATION_ID = 1001
+        private const val NEW_EVENTS_NOTIFICATION_ID = 1002
     }
 }
