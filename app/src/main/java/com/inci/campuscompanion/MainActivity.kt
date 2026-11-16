@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.WorkManager
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
@@ -69,15 +70,23 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
+        // Events repository now uses the Room cache
         val eventsRepository = EventsRepository(
-            EventsRemoteDataSource(RetrofitClient.api)
+            EventsRemoteDataSource(RetrofitClient.api),
+            database.eventDao()
         )
 
+        // Events ViewModel now receives WorkManager
         val eventsViewModel: EventsViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return EventsViewModel(eventsRepository) as T
+                override fun <T : ViewModel> create(
+                    modelClass: Class<T>
+                ): T {
+                    return EventsViewModel(
+                        eventsRepository,
+                        WorkManager.getInstance(applicationContext)
+                    ) as T
                 }
             }
         }

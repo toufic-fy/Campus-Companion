@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 fun EventsScreen(
     uiState: EventsUiState,
     onRetry: () -> Unit,
+    refreshStatus: RefreshUi,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -27,7 +28,7 @@ fun EventsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Campus Events",
+                "Campus Events",
                 style = MaterialTheme.typography.headlineSmall
             )
 
@@ -36,10 +37,31 @@ fun EventsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        val statusText = when (refreshStatus) {
+            RefreshUi.Idle ->
+                "Refresh not requested yet"
+
+            RefreshUi.Queued ->
+                "Refresh queued (waiting for network if offline)"
+
+            RefreshUi.Refreshing ->
+                "Refreshing cached events..."
+
+            RefreshUi.Current ->
+                "Events cache is up to date"
+
+            RefreshUi.Failed ->
+                "Refresh failed. Tap Refresh to try again."
+        }
+
+        Text(
+            text = statusText,
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Spacer(Modifier.height(16.dp))
 
         when (uiState) {
-
             EventsUiState.Loading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -50,19 +72,11 @@ fun EventsScreen(
             }
 
             EventsUiState.Empty -> {
-                Text("No events available.")
+                Text("No cached events yet. Refresh when online.")
             }
 
             is EventsUiState.Error -> {
-                Column {
-                    Text("Error: ${uiState.message}")
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Button(onClick = onRetry) {
-                        Text("Retry")
-                    }
-                }
+                Text("Error: ${uiState.message}")
             }
 
             is EventsUiState.Content -> {

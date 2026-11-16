@@ -1,21 +1,17 @@
 
 package com.inci.campuscompanion
 
-
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -28,15 +24,20 @@ import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.events.EventsViewModel
 
-
 @Composable
 fun CampusApp(
     viewModel: MainViewModel,
     eventsViewModel: EventsViewModel
 ) {
     val navController = rememberNavController()
-    AppNavHost(navController, viewModel, eventsViewModel)
+
+    AppNavHost(
+        navController,
+        viewModel,
+        eventsViewModel
+    )
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavHost(
@@ -45,8 +46,12 @@ fun AppNavHost(
     eventsViewModel: EventsViewModel
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+
     val eventsState by eventsViewModel.uiState.collectAsStateWithLifecycle()
+
+    val refreshStatus by eventsViewModel.refreshStatus.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -56,9 +61,13 @@ fun AppNavHost(
         composable("tasks") {
             TaskScreen(
                 isDarkMode = isDarkMode,
-                onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                onToggleDarkMode = {
+                    viewModel.toggleDarkMode(it)
+                },
                 tasks = tasks,
-                onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                onToggleTask = {
+                    viewModel.toggleTaskCompletion(it)
+                },
                 onAddTask = { title, description ->
                     viewModel.upsertTask(title, description)
                 },
@@ -67,7 +76,6 @@ fun AppNavHost(
                 }
             )
         }
-
 
         composable("events") {
             Scaffold(
@@ -83,7 +91,8 @@ fun AppNavHost(
                                 }
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    imageVector =
+                                        Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back"
                                 )
                             }
@@ -93,6 +102,7 @@ fun AppNavHost(
             ) { innerPadding ->
                 EventsScreen(
                     uiState = eventsState,
+                    refreshStatus = refreshStatus,
                     onRetry = {
                         eventsViewModel.refreshEvents()
                     },
@@ -102,6 +112,5 @@ fun AppNavHost(
                 )
             }
         }
-
     }
 }
