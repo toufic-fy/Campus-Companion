@@ -1,5 +1,11 @@
+
 package com.inci.campuscompanion.ui.tasks
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,11 +39,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notifications.NotificationHelper
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
@@ -51,9 +59,49 @@ fun TaskRoute(
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
+    val notificationsEnabled by viewModel.areEventNotificationsEnabled
+        .collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                viewModel.toggleEventNotifications(true)
+            }
+        }
+
+    fun handleNotificationToggle(enabled: Boolean) {
+        if (!enabled) {
+            viewModel.toggleEventNotifications(false)
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permissionGranted =
+                context.checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+
+            if (permissionGranted) {
+                viewModel.toggleEventNotifications(true)
+            } else {
+                notificationPermissionLauncher.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+            }
+        } else {
+            viewModel.toggleEventNotifications(true)
+        }
+    }
+
     TaskContent(
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        notificationsEnabled = notificationsEnabled,
+        onToggleNotifications = ::handleNotificationToggle,
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -66,6 +114,8 @@ fun TaskRoute(
 fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onToggleNotifications: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -73,31 +123,64 @@ fun TaskContent(
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Dark Mode",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Switch(
-                    checked = isDarkMode,
-                    onCheckedChange = onToggleDarkMode
-                )
-                Button(
-                    onClick = onNavigateEvents
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
+                    Text(
+                        text = "Dark Mode",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = onToggleDarkMode
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Event notifications",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Switch(
+                        checked = notificationsEnabled,
+                        onCheckedChange = onToggleNotifications
+                    )
+                }
+
+                Button(onClick = onNavigateEvents) {
+                    Icon(
+                        imageVector = Icons.Default.Event,
+                        contentDescription = "Events"
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
+                }
+
+                Button(
+                    onClick = {
+                        NotificationHelper.showTestNotification(context)
+                    }
+                ) {
+                    Text("Test Notification")
                 }
             }
 
@@ -130,7 +213,10 @@ fun TaskContent(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task")
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Task"
+            )
         }
 
         if (showAddDialog) {
@@ -165,7 +251,9 @@ fun AddTaskDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -214,7 +302,9 @@ fun TaskRow(
                 minLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
             Spacer(modifier = Modifier.height(4.dp))
+
             Text(
                 text = task.description,
                 maxLines = 2,
@@ -222,6 +312,7 @@ fun TaskRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
         Checkbox(
             checked = task.isCompleted,
             onCheckedChange = { onToggle() }
@@ -255,6 +346,8 @@ fun TaskPreview() {
         TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
+            notificationsEnabled = false,
+            onToggleNotifications = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)

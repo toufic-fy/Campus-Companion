@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion
 
 import android.os.Bundle
@@ -24,6 +25,7 @@ import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.notifications.NotificationHelper
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -32,15 +34,20 @@ import com.inci.campuscompanion.ui.view_model.TasksViewModel
 import com.inci.campuscompanion.worker.RefreshEventWorker
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        NotificationHelper.createNotificationChannel(applicationContext)
+
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
+
         val eventsRepository = EventsRepository(
-            EventsRemoteDataSource(RetrofitClient.campusApi)
+            remoteDataSource = EventsRemoteDataSource(RetrofitClient.campusApi),
+            preferencesRepository = preferencesRepository
         )
 
         val tasksViewModel: TasksViewModel by viewModels {
@@ -54,6 +61,7 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // Schedule periodic event refresh.
         RefreshEventWorker.enqueueUniquePeriodicWork(applicationContext)
 
         setContent {
@@ -83,6 +91,7 @@ fun CampusApp(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+
     AppNavHost(
         navController = navController,
         isDarkMode = isDarkMode,
@@ -112,9 +121,12 @@ fun AppNavHost(
                 viewModel = tasksViewModel,
                 isDarkMode = isDarkMode,
                 onToggleDarkMode = onToggleDarkMode,
-                onNavigateEvents = { navController.navigate("events") }
+                onNavigateEvents = {
+                    navController.navigate("events")
+                }
             )
         }
+
         composable("events") {
             EventsScreen(
                 viewModel = eventsViewModel
