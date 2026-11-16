@@ -1,6 +1,25 @@
 package com.inci.campuscompanion
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -40,7 +59,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TopAppBar
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.lifecycle.ViewModel
@@ -59,11 +87,33 @@ import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
+import java.util.concurrent.TimeUnit
+import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        EventsNotification.createChannel(this)
+        RefreshEventsWorker.schedulePeriodic(WorkManager.getInstance(applicationContext))
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
@@ -73,23 +123,11 @@ class MainActivity : ComponentActivity() {
             MainViewModel.Factory(preferencesRepository, taskRepository)
         }
 
-        val eventsViewModel: EventsViewModel by viewModels {
-            EventsViewModel.Factory(EventsRepository(CampusApi.instance))
-        }
-
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
-            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    EventsScreen(
-                        state = eventsState,
-                        onRetry = { eventsViewModel.load() },
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                CampusApp(viewModel = viewModel)
             }
         }
     }
@@ -102,6 +140,7 @@ fun TaskScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
+    onOpenEvents: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -123,6 +162,13 @@ fun TaskScreen(
                     checked = isDarkMode,
                     onCheckedChange = onToggleDarkMode
                 )
+            }
+
+            Button(
+                onClick = onOpenEvents,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text("Campus events")
             }
 
             HorizontalDivider()
@@ -351,10 +397,50 @@ sealed interface EventsUiState {
     data class Error(val message: String) : EventsUiState
 }
 
-class EventsViewModel(private val repository: EventsRepository) : ViewModel() {
+class EventNotificationPreferences(private val dataStore: DataStore<Preferences>) {
+
+    private val enabledKey = booleanPreferencesKey("event_notifications_enabled")
+    private val knownEventIdsKey = stringSetPreferencesKey("known_event_ids")
+
+    val notificationsEnabled: Flow<Boolean> = dataStore.data.map { it[enabledKey] ?: false }
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[enabledKey] = enabled }
+    }
+
+    suspend fun isEnabled(): Boolean = notificationsEnabled.first()
+
+    suspend fun knownEventIds(): Set<String>? = dataStore.data.first()[knownEventIdsKey]
+
+    suspend fun saveKnownEventIds(ids: Set<String>) {
+        dataStore.edit { it[knownEventIdsKey] = ids }
+    }
+}
+
+class EventsViewModel(
+    private val repository: EventsRepository,
+    private val workManager: WorkManager,
+    private val preferences: EventNotificationPreferences
+) : ViewModel() {
+
+    val notificationsEnabled: StateFlow<Boolean> = preferences.notificationsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setNotificationsEnabled(enabled) }
+    }
 
     private val _state = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
     val state: StateFlow<EventsUiState> = _state
+
+    val refreshStatus: StateFlow<String?> = workManager
+        .getWorkInfosForUniqueWorkFlow(RefreshEventsWorker.WORK_NAME)
+        .map { infos -> infos.firstOrNull()?.toStatusText() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun refreshInBackground() {
+        RefreshEventsWorker.refreshNow(workManager)
+    }
 
     init { load() }
 
@@ -368,40 +454,338 @@ class EventsViewModel(private val repository: EventsRepository) : ViewModel() {
     }
 
     companion object {
-        fun Factory(repository: EventsRepository): ViewModelProvider.Factory =
+        fun Factory(
+            repository: EventsRepository,
+            workManager: WorkManager,
+            preferences: EventNotificationPreferences
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    EventsViewModel(repository) as T
+                    EventsViewModel(repository, workManager, preferences) as T
             }
     }
 }
 
-@Composable
-fun EventsScreen(state: EventsUiState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        when (state) {
-            is EventsUiState.Loading -> CircularProgressIndicator()
+private fun WorkInfo.toStatusText(): String = when (state) {
+    WorkInfo.State.ENQUEUED -> "Background refresh waiting for internet…"
+    WorkInfo.State.RUNNING -> "Refreshing in background…"
+    WorkInfo.State.SUCCEEDED -> {
+        val count = outputData.getInt(RefreshEventsWorker.KEY_EVENT_COUNT, 0)
+        val newCount = outputData.getInt(RefreshEventsWorker.KEY_NEW_EVENT_COUNT, 0)
+        "Background refresh done: $count events, $newCount new"
+    }
+    WorkInfo.State.FAILED -> "Background refresh failed"
+    WorkInfo.State.BLOCKED -> "Background refresh waiting…"
+    WorkInfo.State.CANCELLED -> "Background refresh cancelled"
+}
 
-            is EventsUiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = onRetry) { Text("Retry") }
+private const val ROUTE_TASKS = "tasks"
+private const val ROUTE_EVENTS = "events"
+
+@Composable
+fun CampusApp(viewModel: MainViewModel) {
+    val navController = rememberNavController()
+    AppNavHost(navController = navController, viewModel = viewModel)
+}
+
+@Composable
+fun AppNavHost(
+    navController: NavHostController,
+    viewModel: MainViewModel
+) {
+    NavHost(
+        navController = navController,
+        startDestination = ROUTE_TASKS
+    ) {
+        composable(ROUTE_TASKS) {
+            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                TaskScreen(
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                    tasks = tasks,
+                    onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                    onAddTask = { title, description -> viewModel.upsertTask(title, description) },
+                    onOpenEvents = { navController.navigate(ROUTE_EVENTS) },
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
+        }
+
+        composable(ROUTE_EVENTS) {
+            val context = LocalContext.current
+            val eventsViewModel: EventsViewModel = viewModel(
+                factory = EventsViewModel.Factory(
+                    repository = EventsRepository(CampusApi.instance),
+                    workManager = WorkManager.getInstance(context.applicationContext),
+                    preferences = EventNotificationPreferences(context.applicationContext.dataStore)
+                )
+            )
+            val eventsState by eventsViewModel.state.collectAsStateWithLifecycle()
+            val refreshStatus by eventsViewModel.refreshStatus.collectAsStateWithLifecycle()
+            val notificationsEnabled by eventsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                eventsViewModel.setNotificationsEnabled(granted)
             }
 
-            is EventsUiState.Content -> Column(Modifier.fillMaxSize()) {
-                Button(onClick = onRetry, modifier = Modifier.padding(16.dp)) { Text("Refresh") }
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
-                    items(state.events, key = { it.id }) { e ->
-                        Column(Modifier.padding(vertical = 8.dp)) {
-                            Text(e.name, style = MaterialTheme.typography.titleMedium)
-                            Text(e.address, style = MaterialTheme.typography.bodyMedium)
-                            Text("${e.startingDate} → ${e.endingDate}", style = MaterialTheme.typography.bodySmall)
+            EventsScreen(
+                state = eventsState,
+                refreshStatus = refreshStatus,
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsChange = { enabled ->
+                    if (enabled && !EventsNotification.canPost(context)) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        eventsViewModel.setNotificationsEnabled(enabled)
+                    }
+                },
+                onTestNotification = { EventsNotification.showTest(context) },
+                onRetry = { eventsViewModel.load() },
+                onBackgroundRefresh = { eventsViewModel.refreshInBackground() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EventsScreen(
+    state: EventsUiState,
+    refreshStatus: String?,
+    notificationsEnabled: Boolean,
+    onNotificationsChange: (Boolean) -> Unit,
+    onTestNotification: () -> Unit,
+    onRetry: () -> Unit,
+    onBackgroundRefresh: () -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Campus Events") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = refreshStatus ?: "No background refresh yet",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onBackgroundRefresh) {
+                    Text("Refresh in background")
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event notifications",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = onNotificationsChange
+                )
+            }
+            TextButton(
+                onClick = onTestNotification,
+                enabled = notificationsEnabled,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                Text("Send test notification")
+            }
+            HorizontalDivider()
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                when (state) {
+                    is EventsUiState.Loading -> CircularProgressIndicator()
+
+                    is EventsUiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = onRetry) { Text("Retry") }
+                    }
+
+                    is EventsUiState.Content -> Column(Modifier.fillMaxSize()) {
+                        Button(onClick = onRetry, modifier = Modifier.padding(16.dp)) { Text("Refresh") }
+                        if (state.events.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No events available")
+                            }
+                        } else {
+                            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
+                                items(state.events, key = { it.id }) { e ->
+                                    Column(Modifier.padding(vertical = 8.dp)) {
+                                        Text(e.name, style = MaterialTheme.typography.titleMedium)
+                                        Text(e.address, style = MaterialTheme.typography.bodyMedium)
+                                        Text("${e.startingDate} → ${e.endingDate}", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
                         }
-                        HorizontalDivider()
                     }
                 }
             }
+        }
+    }
+}
+
+object EventsNotification {
+
+    const val CHANNEL_ID = "event_updates"
+    private const val NEW_EVENTS_ID = 1001
+    private const val TEST_ID = 1002
+
+    fun createChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Event updates",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "New campus events"
+            }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    fun canPost(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+
+    fun showTest(context: Context) {
+        show(context, TEST_ID, "Event updates", "Notifications are working")
+    }
+
+    fun showNewEvents(context: Context, newEvents: List<CampusEvent>) {
+        val title = if (newEvents.size == 1) "New campus event" else "${newEvents.size} new campus events"
+        val text = newEvents.take(3).joinToString { it.name }
+        show(context, NEW_EVENTS_ID, title, text)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun show(context: Context, id: Int, title: String, text: String) {
+        if (!canPost(context)) return
+
+        val openApp = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            openApp,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(id, notification)
+    }
+}
+
+class RefreshEventsWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
+
+    override suspend fun doWork(): Result {
+        val repository = EventsRepository(CampusApi.instance)
+        val preferences = EventNotificationPreferences(applicationContext.dataStore)
+
+        val events = repository.fetchEvents().getOrElse {
+            return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
+        }
+
+        val knownIds = preferences.knownEventIds()
+        val newEvents = if (knownIds == null) emptyList() else events.filter { it.id !in knownIds }
+        preferences.saveKnownEventIds(events.map { it.id }.toSet())
+
+        if (newEvents.isNotEmpty() && preferences.isEnabled()) {
+            EventsNotification.showNewEvents(applicationContext, newEvents)
+        }
+
+        return Result.success(
+            workDataOf(
+                KEY_EVENT_COUNT to events.size,
+                KEY_NEW_EVENT_COUNT to newEvents.size
+            )
+        )
+    }
+
+    companion object {
+        const val WORK_NAME = "refresh_events"
+        const val PERIODIC_WORK_NAME = "refresh_events_periodic"
+        const val KEY_EVENT_COUNT = "event_count"
+        const val KEY_NEW_EVENT_COUNT = "new_event_count"
+        private const val MAX_ATTEMPTS = 3
+
+        private val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+
+        fun refreshNow(workManager: WorkManager) {
+            val request = OneTimeWorkRequestBuilder<RefreshEventsWorker>()
+                .setConstraints(constraints)
+                .build()
+            workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+        }
+
+        fun schedulePeriodic(workManager: WorkManager) {
+            val request = PeriodicWorkRequestBuilder<RefreshEventsWorker>(6, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+            workManager.enqueueUniquePeriodicWork(
+                PERIODIC_WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
         }
     }
 }
