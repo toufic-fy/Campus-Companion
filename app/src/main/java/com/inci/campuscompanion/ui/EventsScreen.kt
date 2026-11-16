@@ -1,4 +1,3 @@
-
 package com.inci.campuscompanion.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -16,11 +15,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inci.campuscompanion.model.CampusEvent
 
@@ -28,7 +27,8 @@ import com.inci.campuscompanion.model.CampusEvent
 fun EventsScreen(
     eventsViewModel: EventsViewModel = viewModel()
 ) {
-    val uiState by eventsViewModel.uiState.collectAsState()
+    val events by eventsViewModel.events.collectAsStateWithLifecycle()
+    val status by eventsViewModel.refreshStatus.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -43,69 +43,72 @@ fun EventsScreen(
         Text(
             text = "Discover what's happening on campus.",
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
 
-        when (val state = uiState) {
-            is EventsUiState.Loading -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = "Loading events...",
-                        modifier = Modifier.padding(top = 12.dp)
+        // Status of the background refresh (queued / running / done / failed).
+        if (status != RefreshStatus.Idle) {
+            Text(
+                text = status.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (status == RefreshStatus.Failed) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        Button(
+            onClick = { eventsViewModel.refresh() },
+            enabled = status != RefreshStatus.Running,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+        ) {
+            Text("Refresh events")
+        }
+
+        if (events.isEmpty()) {
+            // Nothing cached yet: explain what's happening instead of a blank screen.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (status) {
+                    RefreshStatus.Running, RefreshStatus.Idle -> {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Loading events...",
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                    RefreshStatus.Waiting -> Text(
+                        "No saved events yet. They will load once you're online."
+                    )
+                    RefreshStatus.Failed -> Text(
+                        "Couldn't load campus events. Tap Refresh to try again."
+                    )
+                    RefreshStatus.UpToDate -> Text(
+                        "No campus events are available right now."
                     )
                 }
             }
-
-            is EventsUiState.Content -> {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
-                ) {
-                    items(
-                        items = state.events,
-                        key = { event -> event.id }
-                    ) { event ->
-                        EventCard(event = event)
-                    }
-
-                    item {
-                        Button(
-                            onClick = { eventsViewModel.loadEvents() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Refresh events")
-                        }
-                    }
-                }
-            }
-
-            is EventsUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-
-                    Button(
-                        onClick = { eventsViewModel.loadEvents() },
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        Text("Retry")
-                    }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                items(
+                    items = events,
+                    key = { event -> event.id }
+                ) { event ->
+                    EventCard(event = event)
                 }
             }
         }
@@ -136,4 +139,3 @@ private fun EventCard(event: CampusEvent) {
         }
     }
 }
-

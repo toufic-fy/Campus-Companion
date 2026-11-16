@@ -1,63 +1,84 @@
-
 package com.inci.campuscompanion.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.EventsRepository
 import com.inci.campuscompanion.model.CampusEvent
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.inci.campuscompanion.worker.RefreshEventsWorker
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
-sealed interface EventsUiState {
-    data object Loading : EventsUiState
-
-    data class Content(
-        val events: List<CampusEvent>
-    ) : EventsUiState
-
-    data class Error(
-        val message: String
-    ) : EventsUiState
+// What the refresh work is doing right now, shown as a line on the Events screen.
+enum class RefreshStatus(val label: String) {
+    Idle(""),
+    Waiting("Refresh queued, waiting for a network connection…"),
+    Running("Refreshing events…"),
+    UpToDate("Events are up to date"),
+    Failed("Couldn't refresh events. Showing saved events.")
 }
 
-class EventsViewModel(
-    private val repository: EventsRepository = EventsRepository()
-) : ViewModel() {
+class EventsViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _uiState =
-        MutableStateFlow<EventsUiState>(EventsUiState.Loading)
+    private val workManager = WorkManager.getInstance(application)
 
-    val uiState: StateFlow<EventsUiState> =
-        _uiState.asStateFlow()
+    private val repository = EventsRepository(
+        eventDao = AppDatabase.getDatabase(application).eventDao()
+    )
+
+    // Cached events from Room: available offline and while the work waits.
+    val events: StateFlow<List<CampusEvent>> = repository.cachedEvents.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Map the unique work's state to a simple status for the UI.
+    val refreshStatus: StateFlow<RefreshStatus> = workManager
+        .getWorkInfosForUniqueWorkFlow(RefreshEventsWorker.UNIQUE_WORK_NAME)
+        .map { infos -> infos.firstOrNull()?.state.toRefreshStatus() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = RefreshStatus.Idle
+        )
 
     init {
-        loadEvents()
+        refresh()
     }
 
-    fun loadEvents() {
-        viewModelScope.launch {
-            _uiState.value = EventsUiState.Loading
+    fun refresh() {
+        val request = OneTimeWorkRequestBuilder<RefreshEventsWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .build()
 
-            try {
-                val events = repository.getEvents()
+        // KEEP: if a refresh is already queued or running, tapping Refresh again
+        // does not add a duplicate.
+        workManager.enqueueUniqueWork(
+            RefreshEventsWorker.UNIQUE_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+    }
 
-                _uiState.value = if (events.isEmpty()) {
-                    EventsUiState.Error(
-                        "No campus events are available right now."
-                    )
-                } else {
-                    EventsUiState.Content(events)
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                _uiState.value = EventsUiState.Error(
-                    "Couldn't load campus events. Check your connection and try again."
-                )
-            }
-        }
+    private fun WorkInfo.State?.toRefreshStatus(): RefreshStatus = when (this) {
+        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> RefreshStatus.Waiting
+        WorkInfo.State.RUNNING -> RefreshStatus.Running
+        WorkInfo.State.SUCCEEDED -> RefreshStatus.UpToDate
+        WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> RefreshStatus.Failed
+        null -> RefreshStatus.Idle
     }
 }
