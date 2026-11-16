@@ -46,7 +46,18 @@ import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
-
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.core.content.ContextCompat
+import com.inci.campuscompanion.util.NotificationPreferences
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(
@@ -55,7 +66,24 @@ fun EventsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
+    val isPreview = LocalInspectionMode.current
+
+    val notificationsEnabled = remember {
+        mutableStateOf(
+            if (isPreview) false
+            else NotificationPreferences.isEnabled(context)
+        )
+    }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            // Android permission result is handled here.
+            // The saved user preference remains independent.
+        }
     val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
     val workStateLabel = workInfo?.state?.name
 
@@ -85,6 +113,57 @@ fun EventsScreen(
         modifier = modifier
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
+            val isPreview = LocalInspectionMode.current
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Event Notifications",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = "Receive updates about campus events",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Switch(
+                    checked = notificationsEnabled.value,
+                    onCheckedChange = { enabled ->
+
+                        notificationsEnabled.value = enabled
+
+                        NotificationPreferences.setEnabled(
+                            context,
+                            enabled
+                        )
+
+                        if (
+                            enabled &&
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        ) {
+                            val permissionGranted =
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                            if (!permissionGranted) {
+                                permissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
+                            }
+                        }
+                    }
+                )
+            }
             if (workStateLabel != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
