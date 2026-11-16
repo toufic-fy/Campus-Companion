@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notification.EventNotificationHelper
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13,10 +14,17 @@ import kotlinx.coroutines.launch
 
 class TasksViewModel(
     private val preferencesRepository: UserPreferencesRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val notificationHelper: EventNotificationHelper
 ) : ViewModel() {
 
     val isDarkMode: StateFlow<Boolean> = preferencesRepository.isDarkMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
+
+    val eventUpdatesEnabled: StateFlow<Boolean> = preferencesRepository.eventUpdatesEnabled.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false,
@@ -33,6 +41,16 @@ class TasksViewModel(
             preferencesRepository.setDarkMode(enabled)
         }
     }
+
+    fun setEventUpdatesEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventUpdatesEnabled(enabled)
+        }
+    }
+
+    fun hasNotificationPermission(): Boolean = notificationHelper.hasPermission()
+
+    fun sendTestNotification() = notificationHelper.notifyTest()
 
     fun upsertTask(title: String, description: String, id: Int = 0) {
         if (title.isBlank()) return
@@ -62,12 +80,13 @@ class TasksViewModel(
     companion object {
         fun Factory(
             preferencesRepository: UserPreferencesRepository,
-            taskRepository: TaskRepository
+            taskRepository: TaskRepository,
+            notificationHelper: EventNotificationHelper
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return TasksViewModel(preferencesRepository, taskRepository) as T
+                    return TasksViewModel(preferencesRepository, taskRepository, notificationHelper) as T
                 }
             }
     }

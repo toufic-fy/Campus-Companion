@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,8 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val EVENT_UPDATES_ENABLED = booleanPreferencesKey("event_updates_enabled")
+        val KNOWN_EVENT_IDS = stringSetPreferencesKey("known_event_ids")
     }
 
     val isDarkMode: Flow<Boolean> = dataStore.data
@@ -36,5 +39,21 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] = isDarkMode
         }
+    }
+
+    val eventUpdatesEnabled: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[PreferencesKeys.EVENT_UPDATES_ENABLED] ?: false }
+
+    suspend fun setEventUpdatesEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.EVENT_UPDATES_ENABLED] = enabled }
+    }
+
+    val knownEventIds: Flow<Set<String>> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[PreferencesKeys.KNOWN_EVENT_IDS] ?: emptySet() }
+
+    suspend fun setKnownEventIds(ids: Set<String>) {
+        dataStore.edit { it[PreferencesKeys.KNOWN_EVENT_IDS] = ids }
     }
 }
