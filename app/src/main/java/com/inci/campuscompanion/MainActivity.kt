@@ -16,13 +16,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import androidx.work.WorkManager
 import com.inci.campuscompanion.data.local.AppDatabase
-import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
-import com.inci.campuscompanion.data.local.pref.dataStore
-import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
-import com.inci.campuscompanion.data.remote.api.RetrofitClient
-import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
@@ -38,10 +34,8 @@ class MainActivity : ComponentActivity() {
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
-        val preferencesRepository = UserPreferencesRepository(dataStore)
-        val eventsRepository = EventsRepository(
-            EventsRemoteDataSource(RetrofitClient.campusApi)
-        )
+        val campusApplication = application as CampusApplication
+        val preferencesRepository = campusApplication.preferences
 
         val tasksViewModel: TasksViewModel by viewModels {
             TasksViewModel.Factory(preferencesRepository, taskRepository)
@@ -49,7 +43,7 @@ class MainActivity : ComponentActivity() {
 
         val eventsViewModel: CampusEventViewModel by viewModels {
             CampusEventViewModel.Factory(
-                eventsRepository = eventsRepository,
+                application = campusApplication,
                 workManager = WorkManager.getInstance(applicationContext)
             )
         }
@@ -115,7 +109,10 @@ fun AppNavHost(
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
-        composable("events") {
+        composable(
+            "events",
+            deepLinks = listOf(navDeepLink { uriPattern = "campus://events/{eventId}" }),
+        ) {
             EventsScreen(
                 viewModel = eventsViewModel
             )
