@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -18,9 +19,11 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val EVENT_UPDATES_ENABLED = booleanPreferencesKey("event_updates_enabled")
+        val KNOWN_EVENT_IDS = stringSetPreferencesKey("known_event_ids")
     }
 
-    val isDarkMode: Flow<Boolean> = dataStore.data
+    private val preferences: Flow<Preferences> = dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -28,13 +31,23 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
                 throw exception
             }
         }
-        .map { preferences ->
-            preferences[PreferencesKeys.IS_DARK_MODE] ?: false
-        }
+
+    val isDarkMode: Flow<Boolean> = preferences.map { it[PreferencesKeys.IS_DARK_MODE] ?: false }
+
+    val eventUpdatesEnabled: Flow<Boolean> =
+        preferences.map { it[PreferencesKeys.EVENT_UPDATES_ENABLED] ?: false }
+
+    val knownEventIds: Flow<Set<String>?> = preferences.map { it[PreferencesKeys.KNOWN_EVENT_IDS] }
 
     suspend fun setDarkMode(isDarkMode: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.IS_DARK_MODE] = isDarkMode
-        }
+        dataStore.edit { it[PreferencesKeys.IS_DARK_MODE] = isDarkMode }
+    }
+
+    suspend fun setEventUpdatesEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.EVENT_UPDATES_ENABLED] = enabled }
+    }
+
+    suspend fun saveKnownEventIds(ids: Set<String>) {
+        dataStore.edit { it[PreferencesKeys.KNOWN_EVENT_IDS] = ids }
     }
 }
