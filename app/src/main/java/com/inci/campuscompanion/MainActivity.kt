@@ -1,9 +1,15 @@
 package com.inci.campuscompanion
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,9 +21,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -31,6 +39,7 @@ import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
+import com.inci.campuscompanion.util.NotificationHelper
 
 private object AppRoutes {
     const val TASKS = "tasks"
@@ -38,9 +47,15 @@ private object AppRoutes {
 }
 
 class MainActivity : ComponentActivity() {
+
+    private var destinationFromIntent: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        NotificationHelper.createNotificationChannel(applicationContext)
+        handleDeepLink(intent)
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
@@ -52,21 +67,53 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val isEventNotificationsEnabled by viewModel.isEventNotificationsEnabled.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+            val context = LocalContext.current
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
                 val navController = rememberNavController()
+
+                LaunchedEffect(destinationFromIntent) {
+                    if (destinationFromIntent == AppRoutes.EVENTS) {
+                        navController.navigate(AppRoutes.EVENTS) {
+                            launchSingleTop = true
+                        }
+                        destinationFromIntent = null
+                    }
+                }
+
                 AppNavigation(
                     navController = navController,
                     isDarkMode = isDarkMode,
+                    isEventNotificationsEnabled = isEventNotificationsEnabled,
                     tasks = tasks,
                     onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                    onToggleEventNotifications = { viewModel.toggleEventNotifications(it) },
                     onToggleTask = { viewModel.toggleTaskCompletion(it) },
                     onAddTask = { title, description ->
                         viewModel.upsertTask(title, description)
-                    }
+                    },
+                    onSendTestNotification = { viewModel.sendTestNotification(context) },
+                    onDeleteOneCachedEvent = { viewModel.deleteOneCachedEvent(context) },
+                    onRunRefreshNow = { viewModel.runRefreshNow(context) }
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val data = intent?.data
+        if ((data?.scheme == "campus" && data.host == "events") ||
+            intent?.getStringExtra("destination") == "events"
+        ) {
+            destinationFromIntent = AppRoutes.EVENTS
         }
     }
 }
@@ -76,20 +123,30 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(
     navController: NavHostController,
     isDarkMode: Boolean,
+    isEventNotificationsEnabled: Boolean,
     tasks: List<Task>,
     onToggleDarkMode: (Boolean) -> Unit,
+    onToggleEventNotifications: (Boolean) -> Unit,
     onToggleTask: (Task) -> Unit,
-    onAddTask: (String, String) -> Unit
+    onAddTask: (String, String) -> Unit,
+    onSendTestNotification: () -> Unit = {},
+    onDeleteOneCachedEvent: () -> Unit = {},
+    onRunRefreshNow: () -> Unit = {}
 ) {
     NavHost(navController = navController, startDestination = AppRoutes.TASKS) {
         composable(AppRoutes.TASKS) {
             TaskScreen(
                 isDarkMode = isDarkMode,
                 onToggleDarkMode = onToggleDarkMode,
+                isEventNotificationsEnabled = isEventNotificationsEnabled,
+                onToggleEventNotifications = onToggleEventNotifications,
                 tasks = tasks,
                 onToggleTask = onToggleTask,
                 onAddTask = onAddTask,
-                onOpenEvents = { navController.navigate(AppRoutes.EVENTS) }
+                onOpenEvents = { navController.navigate(AppRoutes.EVENTS) },
+                onSendTestNotification = onSendTestNotification,
+                onDeleteOneCachedEvent = onDeleteOneCachedEvent,
+                onRunRefreshNow = onRunRefreshNow
             )
         }
         composable(AppRoutes.EVENTS) {
@@ -104,13 +161,33 @@ fun AppNavigation(
 fun TaskScreen(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    isEventNotificationsEnabled: Boolean,
+    onToggleEventNotifications: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
     onOpenEvents: () -> Unit = {},
+    onSendTestNotification: () -> Unit = {},
+    onDeleteOneCachedEvent: () -> Unit = {},
+    onRunRefreshNow: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val hasSystemPermission: Boolean = remember(context) {
+        NotificationHelper.hasNotificationPermission(context)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            onToggleEventNotifications(true)
+        } else {
+            onToggleEventNotifications(false)
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -141,6 +218,7 @@ fun TaskScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Dark Mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -156,6 +234,101 @@ fun TaskScreen(
                     checked = isDarkMode,
                     onCheckedChange = onToggleDarkMode
                 )
+            }
+
+            HorizontalDivider()
+
+            // Event Update Notifications toggle
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Event Update Notifications",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Notify when campus events are created or updated",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isEventNotificationsEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    onToggleEventNotifications(true)
+                                }
+                            } else {
+                                onToggleEventNotifications(false)
+                            }
+                        }
+                    )
+                }
+
+                if (isEventNotificationsEnabled && !hasSystemPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "System notification permission is currently disabled in Android settings.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            HorizontalDivider()
+
+            // DEBUG / TESTING SECTION
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Debug / Testing Tools",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onSendTestNotification,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Send test notification", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = onDeleteOneCachedEvent,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Delete 1 cached event", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onRunRefreshNow,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Run refresh now (WorkManager)", style = MaterialTheme.typography.labelSmall)
+                }
             }
 
             HorizontalDivider()
@@ -293,22 +466,5 @@ fun TaskList(
                 onToggle = { onToggleTask(task) }
             )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TaskPreview() {
-    CampusCompanionTheme(darkTheme = false) {
-        TaskScreen(
-            isDarkMode = false,
-            onToggleDarkMode = {},
-            tasks = listOf(
-                Task(1, "Task 1", "Description 1", false),
-                Task(2, "Task 2", "Description 2", true)
-            ),
-            onToggleTask = {},
-            onAddTask = { _, _ -> }
-        )
     }
 }

@@ -1,31 +1,55 @@
 package com.inci.campuscompanion.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
+import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.data.UserPreferencesRepository
+import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.data.remote.CampusApi
+import com.inci.campuscompanion.util.EventNotificationHelper
+import kotlinx.coroutines.flow.first
 
 class RefreshEventsWorker(
-    appContext: Context,
+    private val appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
-    private val repository = EventsRepository(CampusApi.create())
+    private val TAG = "EventNotification"
+    private val database = AppDatabase.getDatabase(appContext)
+    private val repository = EventsRepository(CampusApi.create(), database.eventDao())
+    private val userPreferencesRepository = UserPreferencesRepository(appContext.dataStore)
 
     override suspend fun doWork(): Result {
         return try {
-            val events = repository.getEvents(page = 1)
-            if (events.isNotEmpty()) {
-                Result.success()
-            } else {
-                Result.retry()
+            val userEnabledNotifications = userPreferencesRepository.isEventNotificationsEnabled.first()
+            val hasSystemPermission = EventNotificationHelper.hasNotificationPermission(appContext)
+
+            Log.d(
+                TAG,
+                "RefreshEventsWorker.doWork() -> preference state (userEnabledNotifications): $userEnabledNotifications, permission state (hasSystemPermission): $hasSystemPermission"
+            )
+
+            val updatedEvents = repository.refreshAndDetectUpdates(page = 1, limit = 10)
+            Log.d(TAG, "RefreshEventsWorker.doWork() -> number of new events found: ${updatedEvents.size}")
+
+            for (event in updatedEvents) {
+                EventNotificationHelper.show(
+                    context = appContext,
+                    event = event,
+                    eventUpdatesEnabled = userEnabledNotifications
+                )
             }
+
+            Result.success()
         } catch (e: Exception) {
+            Log.e(TAG, "RefreshEventsWorker failed: ${e.message}", e)
             Result.retry()
         }
     }
