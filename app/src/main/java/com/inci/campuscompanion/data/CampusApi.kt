@@ -9,12 +9,13 @@ import retrofit2.http.GET
 
 interface CampusApi {
 
-    @GET("posts")
+    // Class mock API: GET {BASE_URL}events/event
+    @GET("events/event")
     suspend fun getEvents(): List<EventDto>
 
     companion object {
         private const val BASE_URL =
-            "https://jsonplaceholder.typicode.com/"
+            "https://6ad70838f71f154ac4879fac.mockapi.io/api/v1/"
 
         val instance: CampusApi by lazy {
             val json = Json {
