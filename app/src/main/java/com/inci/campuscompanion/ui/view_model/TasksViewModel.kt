@@ -21,7 +21,16 @@ class TasksViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false,
     )
-
+    val knownEventIds: StateFlow<Set<String>?> = preferencesRepository.knownEventIds.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null,
+    )
+    val eventUpdatesEnabled: StateFlow<Boolean> = preferencesRepository.eventUpdatesEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
     val tasks: StateFlow<List<Task>> = taskRepository.allTasks.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -34,6 +43,11 @@ class TasksViewModel(
         }
     }
 
+    fun setEventUpdatesEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventUpdatesEnabled(enabled)
+        }
+    }
     fun upsertTask(title: String, description: String, id: Int = 0) {
         if (title.isBlank()) return
         viewModelScope.launch {

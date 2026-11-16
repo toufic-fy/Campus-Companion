@@ -30,6 +30,11 @@ import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 import com.inci.campuscompanion.worker.RefreshEventWorker
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.navDeepLink
+import com.inci.campuscompanion.notifications.EventNotificationHelper
+import com.inci.campuscompanion.ui.settings.EventUpdatesSetting
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,10 +120,24 @@ fun AppNavHost(
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
-        composable("events") {
-            EventsScreen(
-                viewModel = eventsViewModel
-            )
+        composable(
+            route = "events",
+            deepLinks = listOf(navDeepLink { uriPattern = EventNotificationHelper.EVENTS_DEEP_LINK })
+        ) {
+            val context = LocalContext.current
+            val eventUpdatesEnabled by tasksViewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
+
+            Column {
+                EventUpdatesSetting(
+                    enabled = eventUpdatesEnabled,
+                    onEnabledChange = tasksViewModel::setEventUpdatesEnabled,
+                    onSimulateNewEvent = { RefreshEventWorker.enqueueSimulatedNewEvent(context) }
+                )
+                EventsScreen(
+                    viewModel = eventsViewModel,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
