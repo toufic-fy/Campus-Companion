@@ -1,13 +1,23 @@
 package com.inci.campuscompanion.data.repository
 
+import com.inci.campuscompanion.data.local.dao.EventDao
+import com.inci.campuscompanion.data.local.entity.toEntity
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.model.CampusEvent
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class EventsRepository(private val remoteDataSource: EventsRemoteDataSource) {
+class EventsRepository(
+    private val remoteDataSource: EventsRemoteDataSource,
+    private val eventDao: EventDao
+) {
+
+    val cachedEvents: Flow<List<CampusEvent>> = eventDao.getEvents()
+        .map { entities -> entities.map { it.toDomain() } }
 
     suspend fun getEvents(): List<CampusEvent> =
         remoteDataSource.getEvents().map { dto ->
@@ -22,7 +32,11 @@ class EventsRepository(private val remoteDataSource: EventsRemoteDataSource) {
             )
         }
 
-    suspend fun refreshEvents(): List<CampusEvent> = getEvents()
+    suspend fun refreshEvents(): List<CampusEvent> {
+        val events = getEvents()
+        eventDao.replaceEvents(events.map { it.toEntity() })
+        return events
+    }
 
     private fun formatTimeLabel(startsAt: String, endsAt: String?): String {
         val startDate = parseIsoDate(startsAt)
