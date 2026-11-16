@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
         val eventsRepository = EventsDependencies.repository(applicationContext)
         val refreshScheduler = EventsRefreshScheduler(WorkManager.getInstance(applicationContext))
         EventNotifier(applicationContext).createChannel()
+        refreshScheduler.schedulePeriodicRefresh()
         val openEvents = intent?.getStringExtra(EventNotifier.EXTRA_DESTINATION) ==
             EventNotifier.DESTINATION_EVENTS
 

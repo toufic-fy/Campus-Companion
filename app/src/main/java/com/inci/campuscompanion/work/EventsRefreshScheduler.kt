@@ -1,9 +1,12 @@
 package com.inci.campuscompanion.work
 
 import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import java.util.concurrent.TimeUnit
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.map
@@ -36,13 +39,30 @@ class EventsRefreshScheduler(private val workManager: WorkManager) {
         WORK_NAME,
         ExistingWorkPolicy.KEEP,
         OneTimeWorkRequestBuilder<RefreshEventsWorker>()
-            .setConstraints(
-                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-            )
+            .setConstraints(networkConstraint)
             .build()
     )
 
+    /**
+     * Refreshes events in the background so new-event notifications arrive while the app is closed.
+     * KEEP leaves an existing schedule alone, so calling this on every launch is safe.
+     * Kept under its own name so the on-screen refresh status only tracks manual refreshes.
+     */
+    fun schedulePeriodicRefresh() = workManager.enqueueUniquePeriodicWork(
+        PERIODIC_WORK_NAME,
+        ExistingPeriodicWorkPolicy.KEEP,
+        PeriodicWorkRequestBuilder<RefreshEventsWorker>(PERIODIC_INTERVAL_MINUTES, TimeUnit.MINUTES)
+            .setConstraints(networkConstraint)
+            .build()
+    )
+
+    private val networkConstraint
+        get() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
     companion object {
         const val WORK_NAME = "refresh-campus-events"
+        const val PERIODIC_WORK_NAME = "periodic-refresh-campus-events"
+        /** WorkManager's minimum periodic interval. */
+        const val PERIODIC_INTERVAL_MINUTES = 15L
     }
 }
