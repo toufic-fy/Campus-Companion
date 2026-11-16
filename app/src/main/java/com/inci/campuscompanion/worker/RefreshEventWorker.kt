@@ -13,9 +13,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.inci.campuscompanion.data.local.AppDatabase
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.notification.EventNotificationHelper
+import com.inci.campuscompanion.notification.EventUpdateNotifier
 import retrofit2.HttpException
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -31,7 +35,11 @@ class RefreshEventWorker(
             AppDatabase.getDatabase(applicationContext).eventDao(),
         )
         return try {
-            repository.refreshEvents()
+            val events = repository.refreshEvents()
+            EventUpdateNotifier(
+                UserPreferencesRepository(applicationContext.dataStore),
+                EventNotificationHelper(applicationContext),
+            ).onEventsRefreshed(events)
             Result.success()
         } catch (e: IOException) {
             Result.retry()

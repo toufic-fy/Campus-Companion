@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import androidx.work.WorkManager
 import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
@@ -24,6 +25,8 @@ import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.notification.EVENTS_DEEP_LINK
+import com.inci.campuscompanion.notification.EventNotificationHelper
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -45,7 +48,7 @@ class MainActivity : ComponentActivity() {
         )
 
         val tasksViewModel: TasksViewModel by viewModels {
-            TasksViewModel.Factory(preferencesRepository, taskRepository)
+            TasksViewModel.Factory(preferencesRepository, taskRepository, EventNotificationHelper(applicationContext))
         }
 
         val eventsViewModel: CampusEventViewModel by viewModels {
@@ -116,7 +119,10 @@ fun AppNavHost(
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
-        composable("events") {
+        composable(
+            route = "events",
+            deepLinks = listOf(navDeepLink { uriPattern = EVENTS_DEEP_LINK })
+        ) {
             EventsScreen(
                 viewModel = eventsViewModel
             )

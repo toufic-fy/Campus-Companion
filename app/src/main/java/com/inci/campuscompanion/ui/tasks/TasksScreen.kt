@@ -1,5 +1,9 @@
 package com.inci.campuscompanion.ui.tasks
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,8 +54,27 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setEventUpdatesEnabled(granted)
+        if (granted) viewModel.sendTestNotification()
+    }
 
     TaskContent(
+        eventUpdatesEnabled = eventUpdatesEnabled,
+        onToggleEventUpdates = { enabled ->
+            if (!enabled) {
+                viewModel.setEventUpdatesEnabled(false)
+            } else if (viewModel.hasNotificationPermission()) {
+                viewModel.setEventUpdatesEnabled(true)
+                viewModel.sendTestNotification()
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        },
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
         tasks = tasks,
@@ -70,7 +93,9 @@ fun TaskContent(
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
     onNavigateEvents: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    eventUpdatesEnabled: Boolean = false,
+    onToggleEventUpdates: (Boolean) -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -99,6 +124,23 @@ fun TaskContent(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event updates",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Switch(
+                    checked = eventUpdatesEnabled,
+                    onCheckedChange = onToggleEventUpdates
+                )
             }
 
             HorizontalDivider()
