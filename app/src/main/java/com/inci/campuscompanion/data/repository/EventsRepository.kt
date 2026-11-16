@@ -25,8 +25,14 @@ class EventsRepository(
             }
         }
 
-    suspend fun refreshEvents() {
-        val fresh = remote.getEvents().map { dto ->
+    suspend fun refreshEvents(): List<CampusEvent> {
+
+        // Read existing cached Events
+        val oldEvents = eventDao.getEventsSnapshot()
+        val oldIds = oldEvents.map { it.id }.toSet()
+
+        // Download fresh Events
+        val freshEvents = remote.getEvents().map { dto ->
             EventEntity(
                 id = dto.id,
                 title = dto.title,
@@ -35,6 +41,22 @@ class EventsRepository(
             )
         }
 
-        eventDao.replaceEvents(fresh)
+        // Detect newly added Events
+        val newEvents = freshEvents.filter { event ->
+            event.id !in oldIds
+        }
+
+        // Update the Room cache
+        eventDao.replaceEvents(freshEvents)
+
+        // Return newly detected Events
+        return newEvents.map { event ->
+            CampusEvent(
+                id = event.id,
+                title = event.title,
+                timeLabel = event.timeLabel,
+                locationLabel = event.locationLabel
+            )
+        }
     }
 }

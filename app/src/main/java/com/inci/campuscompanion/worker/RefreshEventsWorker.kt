@@ -17,10 +17,13 @@ import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 import java.io.IOException
 
+import com.inci.campuscompanion.notifications.showNewEventsNotification
+
 class RefreshEventsWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
+
 
     override suspend fun doWork(): Result {
 
@@ -32,7 +35,35 @@ class RefreshEventsWorker(
         )
 
         return try {
-            repository.refreshEvents()
+
+            val preferences = applicationContext.getSharedPreferences(
+                "events_notification_sync",
+                Context.MODE_PRIVATE
+            )
+
+            val previouslySynced = preferences.getBoolean(
+                "has_completed_refresh",
+                false
+            )
+
+            // Refresh Events and identify newly added ones
+            val newEvents = repository.refreshEvents()
+
+            // Record a successful baseline refresh
+            preferences.edit()
+                .putBoolean("has_completed_refresh", true)
+                .apply()
+
+            // Notify only after the first successful baseline,
+            // and only when new Events are found
+            if (previouslySynced && newEvents.isNotEmpty()) {
+                showNewEventsNotification(
+                    context = applicationContext,
+                    count = newEvents.size,
+                    eventTitle = newEvents.first().title
+                )
+            }
+
             Result.success()
 
         } catch (error: CancellationException) {
@@ -54,7 +85,7 @@ class RefreshEventsWorker(
     }
 }
 
-object EventsRefreshWork {
+    object EventsRefreshWork {
 
     const val UNIQUE_NAME = "refresh-campus-events"
 

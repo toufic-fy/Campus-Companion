@@ -14,6 +14,10 @@ interface EventDao {
     @Query("SELECT * FROM events")
     fun getAllEvents(): Flow<List<EventEntity>>
 
+    // Get the current cached Events for comparison
+    @Query("SELECT * FROM events")
+    suspend fun getEventsSnapshot(): List<EventEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEvents(events: List<EventEntity>)
 

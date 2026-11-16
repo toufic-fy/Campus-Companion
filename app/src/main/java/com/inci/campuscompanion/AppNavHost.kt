@@ -24,6 +24,21 @@ import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.events.EventsViewModel
 
+
+import androidx.compose.foundation.layout.Column
+import com.inci.campuscompanion.notifications.EventUpdatesToggle
+
+import android.widget.Toast
+import androidx.compose.material3.Button
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.padding
+import androidx.navigation.navDeepLink
+import kotlinx.coroutines.launch
+import com.inci.campuscompanion.notifications.showTestEventNotification
+import androidx.compose.ui.unit.dp
+
+
 @Composable
 fun CampusApp(
     viewModel: MainViewModel,
@@ -35,6 +50,7 @@ fun CampusApp(
         navController,
         viewModel,
         eventsViewModel
+
     )
 }
 
@@ -52,6 +68,10 @@ fun AppNavHost(
     val eventsState by eventsViewModel.uiState.collectAsStateWithLifecycle()
 
     val refreshStatus by eventsViewModel.refreshStatus.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
 
     NavHost(
         navController = navController,
@@ -77,8 +97,17 @@ fun AppNavHost(
             )
         }
 
-        composable("events") {
-            Scaffold(
+
+        composable(
+            route = "events",
+            deepLinks = listOf(
+                navDeepLink {
+                    uriPattern = "campus://events"
+                }
+            )
+        ) {
+
+        Scaffold(
                 topBar = {
                     TopAppBar(
                         title = {
@@ -99,18 +128,48 @@ fun AppNavHost(
                         }
                     )
                 }
+
             ) { innerPadding ->
-                EventsScreen(
-                    uiState = eventsState,
-                    refreshStatus = refreshStatus,
-                    onRetry = {
-                        eventsViewModel.refreshEvents()
-                    },
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                )
+                ) {
+                    EventUpdatesToggle()
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val sent = showTestEventNotification(context)
+
+                                Toast.makeText(
+                                    context,
+                                    if (sent) {
+                                        "Test notification sent!"
+                                    } else {
+                                        "Enable Event notifications and allow permission first"
+                                    },
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Text("Send test notification")
+                    }
+
+
+                    EventsScreen(
+                        uiState = eventsState,
+                        refreshStatus = refreshStatus,
+                        onRetry = {
+                            eventsViewModel.refreshEvents()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
+
         }
     }
 }
