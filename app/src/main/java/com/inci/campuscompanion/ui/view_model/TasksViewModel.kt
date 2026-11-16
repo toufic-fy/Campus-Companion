@@ -6,14 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notification.EventNotificationHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class TasksViewModel(
     private val preferencesRepository: UserPreferencesRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val notificationHelper: EventNotificationHelper
 ) : ViewModel() {
 
     val isDarkMode: StateFlow<Boolean> = preferencesRepository.isDarkMode.stateIn(
@@ -21,6 +25,15 @@ class TasksViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false,
     )
+
+    val eventUpdatesEnabled: StateFlow<Boolean> = preferencesRepository.eventUpdatesEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
+
+    private val _notificationPermissionGranted = MutableStateFlow(notificationHelper.isPermissionGranted())
+    val notificationPermissionGranted: StateFlow<Boolean> = _notificationPermissionGranted.asStateFlow()
 
     val tasks: StateFlow<List<Task>> = taskRepository.allTasks.stateIn(
         scope = viewModelScope,
@@ -31,6 +44,26 @@ class TasksViewModel(
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun setEventUpdatesEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventUpdatesEnabled(enabled)
+        }
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _notificationPermissionGranted.value = granted
+    }
+
+    fun refreshNotificationPermission() {
+        _notificationPermissionGranted.value = notificationHelper.isPermissionGranted()
+    }
+
+    fun sendTestNotification() {
+        if (eventUpdatesEnabled.value && notificationHelper.isPermissionGranted()) {
+            notificationHelper.showTestNotification()
         }
     }
 
@@ -62,12 +95,13 @@ class TasksViewModel(
     companion object {
         fun Factory(
             preferencesRepository: UserPreferencesRepository,
-            taskRepository: TaskRepository
+            taskRepository: TaskRepository,
+            notificationHelper: EventNotificationHelper
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return TasksViewModel(preferencesRepository, taskRepository) as T
+                    return TasksViewModel(preferencesRepository, taskRepository, notificationHelper) as T
                 }
             }
     }

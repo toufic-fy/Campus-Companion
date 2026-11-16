@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -18,9 +19,11 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val EVENT_UPDATES_ENABLED = booleanPreferencesKey("event_updates_enabled")
+        val KNOWN_EVENT_IDS = stringSetPreferencesKey("known_event_ids")
     }
 
-    val isDarkMode: Flow<Boolean> = dataStore.data
+    private val preferencesFlow: Flow<Preferences> = dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -28,6 +31,8 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
                 throw exception
             }
         }
+
+    val isDarkMode: Flow<Boolean> = preferencesFlow
         .map { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] ?: false
         }
@@ -35,6 +40,28 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun setDarkMode(isDarkMode: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] = isDarkMode
+        }
+    }
+
+    val eventUpdatesEnabled: Flow<Boolean> = preferencesFlow
+        .map { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] ?: false
+        }
+
+    suspend fun setEventUpdatesEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] = enabled
+        }
+    }
+
+    val knownEventIds: Flow<Set<String>> = preferencesFlow
+        .map { preferences ->
+            preferences[PreferencesKeys.KNOWN_EVENT_IDS] ?: emptySet()
+        }
+
+    suspend fun setKnownEventIds(ids: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.KNOWN_EVENT_IDS] = ids
         }
     }
 }
