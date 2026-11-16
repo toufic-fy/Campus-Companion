@@ -66,7 +66,7 @@ import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Retrofit
-
+import com.inci.campuscompanion.notifications.createEventUpdatesChannel
 // Set USE_MOCK_DATA = false to test real network requests, disconnecting emulator network, and error states.
 const val USE_MOCK_DATA = true
 
@@ -79,7 +79,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
