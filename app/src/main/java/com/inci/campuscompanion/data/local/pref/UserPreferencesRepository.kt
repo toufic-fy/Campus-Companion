@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
@@ -18,6 +20,8 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val EVENT_UPDATES_ENABLED = booleanPreferencesKey("event_updates_enabled")
+        val EVENT_SNAPSHOT = stringSetPreferencesKey("event_snapshot")
     }
 
     val isDarkMode: Flow<Boolean> = dataStore.data
@@ -32,9 +36,36 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
             preferences[PreferencesKeys.IS_DARK_MODE] ?: false
         }
 
+    val eventUpdatesEnabled: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] ?: false
+        }
+
     suspend fun setDarkMode(isDarkMode: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] = isDarkMode
+        }
+    }
+
+    suspend fun setEventUpdatesEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] = enabled
+        }
+    }
+
+    suspend fun getEventSnapshot(): Set<String>? =
+        dataStore.data.first()[PreferencesKeys.EVENT_SNAPSHOT]
+
+    suspend fun saveEventSnapshot(snapshot: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EVENT_SNAPSHOT] = snapshot
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.inci.campuscompanion
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,10 +10,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.util.Consumer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -83,6 +90,12 @@ fun CampusApp(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+    val activity = LocalContext.current as ComponentActivity
+    DisposableEffect(navController) {
+        val listener = Consumer<Intent> { intent -> navController.handleDeepLink(intent) }
+        activity.addOnNewIntentListener(listener)
+        onDispose { activity.removeOnNewIntentListener(listener) }
+    }
     AppNavHost(
         navController = navController,
         isDarkMode = isDarkMode,
@@ -115,7 +128,17 @@ fun AppNavHost(
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
-        composable("events") {
+        composable(
+            route = "events",
+            arguments = listOf(
+                navArgument("eventId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
+            deepLinks = listOf(navDeepLink { uriPattern = "campus://events/{eventId}" })
+        ) {
             EventsScreen(
                 viewModel = eventsViewModel
             )
