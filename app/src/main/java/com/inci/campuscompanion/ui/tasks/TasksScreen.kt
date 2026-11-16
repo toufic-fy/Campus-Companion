@@ -1,5 +1,12 @@
 package com.inci.campuscompanion.ui.tasks
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,22 +29,31 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notification.EventNotificationHelper
+import com.inci.campuscompanion.notification.NotificationPolicy
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
@@ -50,10 +66,54 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val policy = remember { NotificationPolicy(context) }
+    var canPost by remember { mutableStateOf(policy.hasPermission()) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canPost = policy.hasPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        canPost = policy.hasPermission()
+    }
 
     TaskContent(
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        eventUpdatesEnabled = eventUpdatesEnabled,
+        notificationsBlocked = eventUpdatesEnabled && !canPost,
+        onToggleEventUpdates = { enabled ->
+            viewModel.setEventUpdatesEnabled(enabled)
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        },
+        onOpenNotificationSettings = {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            context.startActivity(intent)
+        },
+        onSendTestNotification = {
+            if (policy.canNotify(eventUpdatesEnabled)) {
+                EventNotificationHelper(context).notifyTest()
+            }
+        },
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -66,6 +126,11 @@ fun TaskRoute(
 fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    eventUpdatesEnabled: Boolean,
+    notificationsBlocked: Boolean,
+    onToggleEventUpdates: (Boolean) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onSendTestNotification: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -98,6 +163,57 @@ fun TaskContent(
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event updates",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Switch(
+                    checked = eventUpdatesEnabled,
+                    onCheckedChange = onToggleEventUpdates
+                )
+            }
+
+            if (eventUpdatesEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(onClick = onSendTestNotification) {
+                        Text("Send test notification")
+                    }
+                }
+            }
+
+            if (notificationsBlocked) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Notifications are blocked for this app",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onOpenNotificationSettings) {
+                        Text("Open settings")
+                    }
                 }
             }
 
@@ -255,6 +371,11 @@ fun TaskPreview() {
         TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
+            eventUpdatesEnabled = true,
+            notificationsBlocked = true,
+            onToggleEventUpdates = {},
+            onOpenNotificationSettings = {},
+            onSendTestNotification = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)

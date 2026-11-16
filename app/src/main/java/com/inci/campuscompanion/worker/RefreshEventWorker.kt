@@ -12,9 +12,16 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.model.CampusEvent
+import com.inci.campuscompanion.notification.EventNotificationHelper
+import com.inci.campuscompanion.notification.NotificationPolicy
+import com.inci.campuscompanion.notification.diffEvents
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -27,12 +34,28 @@ class RefreshEventWorker(
             val repository = EventsRepository(
                 EventsRemoteDataSource(RetrofitClient.campusApi),
             )
-            repository.refreshEvents()
+            val events = repository.refreshEvents()
+            notifyAboutChanges(events)
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
             Result.retry()
         }
+    }
+
+    private suspend fun notifyAboutChanges(events: List<CampusEvent>) {
+        val preferences = UserPreferencesRepository(applicationContext.dataStore)
+        val previous = preferences.getEventSnapshot()
+        val diff = diffEvents(previous, events)
+        preferences.saveEventSnapshot(diff.snapshot)
+
+        if (previous == null) return
+        val policy = NotificationPolicy(applicationContext)
+        if (!policy.canNotify(preferences.eventUpdatesEnabled.first())) return
+
+        val helper = EventNotificationHelper(applicationContext)
+        helper.notifyNewEvents(diff.newEvents)
+        helper.notifyChangedEvents(diff.changedEvents)
     }
 
     companion object {
