@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import androidx.work.WorkManager
 import com.inci.campuscompanion.data.local.AppDatabase
@@ -24,6 +25,8 @@ import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.notifications.EventNotificationHelper
+import com.inci.campuscompanion.notifications.EventUpdateNotifier
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -35,6 +38,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Step 2: the "Event updates" channel shows up in system settings once created.
+        EventNotificationHelper.createChannel(applicationContext)
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
@@ -50,7 +56,9 @@ class MainActivity : ComponentActivity() {
         val eventsViewModel: CampusEventViewModel by viewModels {
             CampusEventViewModel.Factory(
                 eventsRepository = eventsRepository,
-                workManager = WorkManager.getInstance(applicationContext)
+                workManager = WorkManager.getInstance(applicationContext),
+                preferencesRepository = preferencesRepository,
+                eventUpdateNotifier = EventUpdateNotifier(applicationContext, preferencesRepository)
             )
         }
 
@@ -115,7 +123,12 @@ fun AppNavHost(
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
-        composable("events") {
+        // The deep link lets a tapped notification open Events,
+        // with Tasks (the start destination) underneath for Back.
+        composable(
+            route = "events",
+            deepLinks = listOf(navDeepLink { uriPattern = EventNotificationHelper.EVENTS_DEEP_LINK })
+        ) {
             EventsScreen(
                 viewModel = eventsViewModel
             )

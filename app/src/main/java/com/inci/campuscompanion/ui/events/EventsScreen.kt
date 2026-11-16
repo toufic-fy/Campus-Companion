@@ -55,6 +55,7 @@ fun EventsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
     val workStateLabel = workInfo?.state?.name
@@ -98,6 +99,12 @@ fun EventsScreen(
                     )
                 }
             }
+
+            EventNotificationsSection(
+                enabled = notificationsEnabled,
+                onEnabledChange = viewModel::setNotificationsEnabled,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+            )
 
             EventsContent(
                 uiState = uiState,

@@ -14,7 +14,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.notifications.EventUpdateNotifier
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -27,7 +30,15 @@ class RefreshEventWorker(
             val repository = EventsRepository(
                 EventsRemoteDataSource(RetrofitClient.campusApi),
             )
-            repository.refreshEvents()
+            val events = repository.refreshEvents()
+
+            // Notify only for new/changed events, and only if the user opted in
+            // and the system permission allows it.
+            EventUpdateNotifier(
+                context = applicationContext,
+                preferences = UserPreferencesRepository(applicationContext.dataStore)
+            ).onEventsRefreshed(events)
+
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
