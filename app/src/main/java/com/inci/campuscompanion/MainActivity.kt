@@ -27,10 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,7 +46,7 @@ import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
-import com.inci.campuscompanion.ui.EventsScreen
+import com.inci.campuscompanion.navigation.AppNavHost
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
@@ -72,54 +69,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
-            val tasks by viewModel.tasks.collectAsStateWithLifecycle()
-
-            var selectedTab by remember { mutableStateOf(0) }
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize()
-                ) { innerPadding ->
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        TabRow(selectedTabIndex = selectedTab) {
-                            Tab(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                text = { Text("Tasks") }
-                            )
-
-                            Tab(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                text = { Text("Events") }
-                            )
-                        }
-
-                        when (selectedTab) {
-                            0 -> TaskScreen(
-                                isDarkMode = isDarkMode,
-                                onToggleDarkMode = {
-                                    viewModel.toggleDarkMode(it)
-                                },
-                                tasks = tasks,
-                                onToggleTask = {
-                                    viewModel.toggleTaskCompletion(it)
-                                },
-                                onAddTask = { title, description ->
-                                    viewModel.upsertTask(title, description)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-
-                            1 -> EventsScreen()
-                        }
-                    }
-                }
+                AppNavHost(mainViewModel = viewModel)
             }
         }
     }
@@ -132,6 +84,7 @@ fun TaskScreen(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
+    onOpenEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -155,6 +108,16 @@ fun TaskScreen(
                     checked = isDarkMode,
                     onCheckedChange = onToggleDarkMode
                 )
+            }
+
+            // The screen doesn't know about navigation; it just calls the callback.
+            Button(
+                onClick = onOpenEvents,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Text("Campus Events")
             }
 
             HorizontalDivider()
@@ -322,7 +285,8 @@ fun TaskPreview() {
                 Task(2, "Task 2", "Description 2", true)
             ),
             onToggleTask = {},
-            onAddTask = { _, _ -> }
+            onAddTask = { _, _ -> },
+            onOpenEvents = {}
         )
     }
 }
