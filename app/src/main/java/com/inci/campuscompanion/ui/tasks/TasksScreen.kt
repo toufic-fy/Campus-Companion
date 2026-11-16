@@ -40,6 +40,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.inci.campuscompanion.notifications.hasNotificationPermission
 
 @Composable
 fun TaskRoute(
@@ -50,10 +55,13 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
 
     TaskContent(
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        eventUpdatesEnabled = eventUpdatesEnabled,
+        onToggleEventUpdates = viewModel::toggleEventUpdates,
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -66,12 +74,20 @@ fun TaskRoute(
 fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    eventUpdatesEnabled: Boolean,
+    onToggleEventUpdates: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
     onNavigateEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        onToggleEventUpdates(granted)
+    }
     var showAddDialog by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -99,6 +115,29 @@ fun TaskContent(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event updates",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Switch(
+                    checked = eventUpdatesEnabled,
+                    onCheckedChange = { wantsUpdates ->
+                        when {
+                            !wantsUpdates -> onToggleEventUpdates(false)
+                            hasNotificationPermission(context) -> onToggleEventUpdates(true)
+                            else -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                )
             }
 
             HorizontalDivider()
@@ -261,7 +300,9 @@ fun TaskPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            onNavigateEvents = {}
+            onNavigateEvents = {},
+            eventUpdatesEnabled = false,
+            onToggleEventUpdates = {},
         )
     }
 }
