@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion.ui.view_model
 
 import androidx.lifecycle.ViewModel
@@ -22,6 +23,13 @@ class TasksViewModel(
         initialValue = false,
     )
 
+    val areEventNotificationsEnabled: StateFlow<Boolean> =
+        preferencesRepository.areEventNotificationsEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false,
+        )
+
     val tasks: StateFlow<List<Task>> = taskRepository.allTasks.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -31,6 +39,12 @@ class TasksViewModel(
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun toggleEventNotifications(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventNotificationsEnabled(enabled)
         }
     }
 

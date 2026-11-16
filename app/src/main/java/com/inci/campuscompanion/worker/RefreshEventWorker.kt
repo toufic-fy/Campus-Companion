@@ -1,3 +1,4 @@
+
 package com.inci.campuscompanion.worker
 
 import android.content.Context
@@ -12,9 +13,13 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.notifications.NotificationHelper
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -24,11 +29,36 @@ class RefreshEventWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            // Create the preferences repository.
+            val preferencesRepository =
+                UserPreferencesRepository(applicationContext.dataStore)
+
+            // Create the events repository.
             val repository = EventsRepository(
-                EventsRemoteDataSource(RetrofitClient.campusApi),
+                remoteDataSource = EventsRemoteDataSource(
+                    RetrofitClient.campusApi
+                ),
+                preferencesRepository = preferencesRepository
             )
-            repository.refreshEvents()
+
+            // Fetch events and identify new or modified ones.
+            val changedEvents =
+                repository.refreshEventsAndGetChanges()
+
+            // Check the user's notification preference.
+            val notificationsEnabled =
+                preferencesRepository.areEventNotificationsEnabled.first()
+
+            // Send notifications only when enabled and changes exist.
+            if (notificationsEnabled && changedEvents.isNotEmpty()) {
+                NotificationHelper.showEventUpdatesNotification(
+                    applicationContext,
+                    changedEvents
+                )
+            }
+
             Result.success()
+
         } catch (e: Exception) {
             e.printStackTrace()
             Result.retry()
@@ -53,7 +83,10 @@ class RefreshEventWorker(
             repeatInterval: Long = 1,
             timeUnit: TimeUnit = TimeUnit.HOURS,
         ): PeriodicWorkRequest {
-            return PeriodicWorkRequestBuilder<RefreshEventWorker>(repeatInterval, timeUnit)
+            return PeriodicWorkRequestBuilder<RefreshEventWorker>(
+                repeatInterval,
+                timeUnit
+            )
                 .setConstraints(constraints)
                 .build()
         }
