@@ -28,9 +28,21 @@ class TasksViewModel(
         initialValue = emptyList(),
     )
 
+    val notificationsEnabled: StateFlow<Boolean> = preferencesRepository.notificationsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
+
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setNotificationsEnabled(enabled)
         }
     }
 

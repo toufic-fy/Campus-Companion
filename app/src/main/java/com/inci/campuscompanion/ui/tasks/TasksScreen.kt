@@ -46,14 +46,20 @@ fun TaskRoute(
     viewModel: TasksViewModel,
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
     onNavigateEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     TaskContent(
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        notificationsEnabled = notificationsEnabled,
+        onToggleNotifications = onToggleNotifications,
+        onSendTestNotification = onSendTestNotification,
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -66,6 +72,9 @@ fun TaskRoute(
 fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -98,6 +107,28 @@ fun TaskContent(
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Notifications",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = onToggleNotifications
+                )
+
+                TextButton(onClick = onSendTestNotification) {
+                    Text("Test")
                 }
             }
 
@@ -255,6 +286,9 @@ fun TaskPreview() {
         TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
+            notificationsEnabled = false,
+            onToggleNotifications = {},
+            onSendTestNotification = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)

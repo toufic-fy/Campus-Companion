@@ -1,9 +1,13 @@
 package com.inci.campuscompanion
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -11,6 +15,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -24,6 +29,7 @@ import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.notifications.EventNotifier
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -55,6 +61,28 @@ class MainActivity : ComponentActivity() {
         }
 
         RefreshEventWorker.enqueueUniquePeriodicWork(applicationContext)
+        EventNotifier.createChannel(applicationContext)
+
+        val requestNotificationPermission = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { }
+
+        val onToggleNotifications: (Boolean) -> Unit = { enabled ->
+            tasksViewModel.setNotificationsEnabled(enabled)
+            if (enabled &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        val onSendTestNotification: () -> Unit = {
+            EventNotifier.show(this, "Test notification", "Notifications are working")
+        }
 
         setContent {
             val isDarkMode by tasksViewModel.isDarkMode.collectAsStateWithLifecycle()
@@ -64,6 +92,8 @@ class MainActivity : ComponentActivity() {
                     CampusApp(
                         isDarkMode = isDarkMode,
                         onToggleDarkMode = tasksViewModel::toggleDarkMode,
+                        onToggleNotifications = onToggleNotifications,
+                        onSendTestNotification = onSendTestNotification,
                         tasksViewModel = tasksViewModel,
                         eventsViewModel = eventsViewModel,
                         modifier = Modifier.padding(innerPadding)
@@ -78,6 +108,8 @@ class MainActivity : ComponentActivity() {
 fun CampusApp(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
     tasksViewModel: TasksViewModel,
     eventsViewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
@@ -87,6 +119,8 @@ fun CampusApp(
         navController = navController,
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        onToggleNotifications = onToggleNotifications,
+        onSendTestNotification = onSendTestNotification,
         tasksViewModel = tasksViewModel,
         eventsViewModel = eventsViewModel,
         modifier = modifier
@@ -98,6 +132,8 @@ fun AppNavHost(
     navController: NavHostController,
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
     tasksViewModel: TasksViewModel,
     eventsViewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
@@ -112,6 +148,8 @@ fun AppNavHost(
                 viewModel = tasksViewModel,
                 isDarkMode = isDarkMode,
                 onToggleDarkMode = onToggleDarkMode,
+                onToggleNotifications = onToggleNotifications,
+                onSendTestNotification = onSendTestNotification,
                 onNavigateEvents = { navController.navigate("events") }
             )
         }
