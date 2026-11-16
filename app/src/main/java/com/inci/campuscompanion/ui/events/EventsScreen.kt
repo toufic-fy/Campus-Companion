@@ -39,10 +39,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.HorizontalDivider
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.inci.campuscompanion.R
 import com.inci.campuscompanion.model.CampusEvent
+import com.inci.campuscompanion.ui.settings.EventUpdatesSetting
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
@@ -55,6 +58,13 @@ fun EventsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
+    val permissionGranted by viewModel.notificationPermissionGranted.collectAsStateWithLifecycle()
+
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshPermissionState()
+        onPauseOrDispose { }
+    }
 
     val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
     val workStateLabel = workInfo?.state?.name
@@ -98,6 +108,16 @@ fun EventsScreen(
                     )
                 }
             }
+
+            EventUpdatesSetting(
+                enabled = eventUpdatesEnabled,
+                permissionGranted = permissionGranted,
+                onEnabledChange = viewModel::setEventUpdatesEnabled,
+                onPermissionResult = viewModel::onNotificationPermissionResult,
+                openNotificationSettingsIntent = viewModel::notificationSettingsIntent,
+                onSendTest = viewModel::sendTestNotification,
+            )
+            HorizontalDivider()
 
             EventsContent(
                 uiState = uiState,
