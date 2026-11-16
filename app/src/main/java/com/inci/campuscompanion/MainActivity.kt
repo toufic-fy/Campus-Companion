@@ -274,8 +274,22 @@ class MainActivity : ComponentActivity() {
             EventsViewModel.Factory(
                 eventsRepository,
                 eventNotifications
+        val eventsRepository = EventsRepository(
+            EventsRemoteDataSource(RetrofitClient.campusApi)
+        )
+
+        val tasksViewModel: TasksViewModel by viewModels {
+            TasksViewModel.Factory(preferencesRepository, taskRepository)
+        }
+
+        val eventsViewModel: CampusEventViewModel by viewModels {
+            CampusEventViewModel.Factory(
+                eventsRepository = eventsRepository,
+                workManager = WorkManager.getInstance(applicationContext)
             )
         }
+
+        RefreshEventWorker.enqueueUniquePeriodicWork(applicationContext)
 
         setContent {
             val isDarkMode by
@@ -327,6 +341,15 @@ class MainActivity : ComponentActivity() {
                         onOpenNotificationSettings =
                             ::openNotificationSettings,
                         openEventsRequest = openEventsRequest,
+            val isDarkMode by tasksViewModel.isDarkMode.collectAsStateWithLifecycle()
+
+            CampusCompanionTheme(darkTheme = isDarkMode) {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    CampusApp(
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = tasksViewModel::toggleDarkMode,
+                        tasksViewModel = tasksViewModel,
+                        eventsViewModel = eventsViewModel,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -934,20 +957,37 @@ fun AddTaskDialog(
                 Text("Cancel")
             }
         }
+fun CampusApp(
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasksViewModel: TasksViewModel,
+    eventsViewModel: CampusEventViewModel,
+    modifier: Modifier = Modifier
+) {
+    val navController = rememberNavController()
+    AppNavHost(
+        navController = navController,
+        isDarkMode = isDarkMode,
+        onToggleDarkMode = onToggleDarkMode,
+        tasksViewModel = tasksViewModel,
+        eventsViewModel = eventsViewModel,
+        modifier = modifier
     )
 }
 
 @Composable
-fun TaskRow(
-    task: Task,
-    onToggle: () -> Unit,
+fun AppNavHost(
+    navController: NavHostController,
+    isDarkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    tasksViewModel: TasksViewModel,
+    eventsViewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    NavHost(
+        navController = navController,
+        startDestination = "tasks",
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -1008,5 +1048,20 @@ fun TaskPreview() {
             onAddTask = { _, _ -> },
             onOpenEvents = {}
         )
+    }
+}
+        composable("tasks") {
+            TaskRoute(
+                viewModel = tasksViewModel,
+                isDarkMode = isDarkMode,
+                onToggleDarkMode = onToggleDarkMode,
+                onNavigateEvents = { navController.navigate("events") }
+            )
+        }
+        composable("events") {
+            EventsScreen(
+                viewModel = eventsViewModel
+            )
+        }
     }
 }

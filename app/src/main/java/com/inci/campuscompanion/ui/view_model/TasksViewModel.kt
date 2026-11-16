@@ -1,17 +1,17 @@
-package com.inci.campuscompanion.ui
+package com.inci.campuscompanion.ui.view_model
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.inci.campuscompanion.data.TaskRepository
-import com.inci.campuscompanion.data.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.repository.TaskRepository
 import com.inci.campuscompanion.model.Task
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class MainViewModel(
+class TasksViewModel(
     private val preferencesRepository: UserPreferencesRepository,
     private val taskRepository: TaskRepository
 ) : ViewModel() {
@@ -67,7 +67,7 @@ class MainViewModel(
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return MainViewModel(preferencesRepository, taskRepository) as T
+                    return TasksViewModel(preferencesRepository, taskRepository) as T
                 }
             }
     }

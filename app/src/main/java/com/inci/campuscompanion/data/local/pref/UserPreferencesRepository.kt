@@ -1,4 +1,4 @@
-package com.inci.campuscompanion.data
+package com.inci.campuscompanion.data.local.pref
 
 import android.content.Context
 import androidx.datastore.core.DataStore
