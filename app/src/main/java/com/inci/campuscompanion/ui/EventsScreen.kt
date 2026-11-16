@@ -1,8 +1,18 @@
 package com.inci.campuscompanion.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -60,6 +70,8 @@ fun EventsScreen(
             )
         }
 
+        EventNotificationSettings(eventsViewModel = eventsViewModel)
+
         Button(
             onClick = { eventsViewModel.refresh() },
             enabled = status != RefreshStatus.Running,
@@ -110,6 +122,79 @@ fun EventsScreen(
                 ) { event ->
                     EventCard(event = event)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventNotificationSettings(eventsViewModel: EventsViewModel) {
+    val savedChoice by eventsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    var hasPermission by remember { mutableStateOf(eventsViewModel.hasNotificationPermission()) }
+    var showBlockedHint by remember { mutableStateOf(false) }
+
+    // Asked only when the user turns the switch on (contextual request).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+        if (granted) {
+            eventsViewModel.setNotificationsEnabled(true)
+        }
+        // Denied: the preference stays off and the app keeps working.
+        showBlockedHint = !granted
+    }
+
+    // On only if the user chose it AND the system allows it.
+    val isOn = savedChoice && hasPermission
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event update notifications",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = isOn,
+                    onCheckedChange = { turnOn ->
+                        showBlockedHint = false
+                        when {
+                            !turnOn -> eventsViewModel.setNotificationsEnabled(false)
+                            eventsViewModel.hasNotificationPermission() -> {
+                                hasPermission = true
+                                eventsViewModel.setNotificationsEnabled(true)
+                            }
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else -> showBlockedHint = true
+                        }
+                    }
+                )
+            }
+
+            if (showBlockedHint) {
+                Text(
+                    text = "Notifications are blocked. You can allow them in system settings.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            TextButton(
+                onClick = { eventsViewModel.sendTestNotification() },
+                enabled = isOn
+            ) {
+                Text("Send test notification")
             }
         }
     }

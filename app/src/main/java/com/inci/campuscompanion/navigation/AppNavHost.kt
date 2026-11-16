@@ -19,6 +19,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import com.inci.campuscompanion.TaskScreen
 import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.MainViewModel
@@ -53,7 +54,12 @@ fun AppNavHost(
             }
         }
 
-        composable(Routes.EVENTS) {
+        // The deep link lets a notification tap open Events directly.
+        // NavHost builds Tasks underneath it, so Back still returns to Tasks.
+        composable(
+            route = Routes.EVENTS,
+            deepLinks = listOf(navDeepLink { uriPattern = Routes.EVENTS_DEEP_LINK })
+        ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = {

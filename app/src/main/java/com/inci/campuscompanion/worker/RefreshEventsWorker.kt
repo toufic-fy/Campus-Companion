@@ -5,6 +5,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.data.UserPreferencesRepository
+import com.inci.campuscompanion.data.dataStore
+import com.inci.campuscompanion.notifications.EventNotificationHelper
+import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -21,16 +25,26 @@ class RefreshEventsWorker(
             eventDao = AppDatabase.getDatabase(applicationContext).eventDao()
         )
 
-        return try {
+        val changedEvents = try {
             repository.refreshEvents()
-            Result.success()
         } catch (e: IOException) {
             // No connection / timeout: try again later with backoff.
-            Result.retry()
+            return Result.retry()
         } catch (e: HttpException) {
             // Server errors (5xx) may go away; other HTTP errors won't.
-            if (e.code() >= 500) Result.retry() else Result.failure()
+            return if (e.code() >= 500) Result.retry() else Result.failure()
         }
+
+        // Checkpoint: notify only if BOTH the user's preference and the system allow it.
+        // (EventNotificationHelper also re-checks the system permission before posting.)
+        val userWantsUpdates = UserPreferencesRepository(applicationContext.dataStore)
+            .eventNotificationsEnabled
+            .first()
+        if (changedEvents.isNotEmpty() && userWantsUpdates) {
+            EventNotificationHelper(applicationContext).showEventUpdates(changedEvents)
+        }
+
+        return Result.success()
     }
 
     companion object {

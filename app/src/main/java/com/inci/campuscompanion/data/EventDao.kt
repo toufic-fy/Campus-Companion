@@ -11,6 +11,10 @@ interface EventDao {
     @Query("SELECT * FROM events ORDER BY id")
     fun observeEvents(): Flow<List<EventEntity>>
 
+    // Snapshot of the cache before a refresh, used to find new or changed events.
+    @Query("SELECT * FROM events")
+    suspend fun getAll(): List<EventEntity>
+
     @Upsert
     suspend fun upsertAll(events: List<EventEntity>)
 

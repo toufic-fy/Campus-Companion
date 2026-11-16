@@ -11,8 +11,12 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.data.UserPreferencesRepository
+import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.CampusEvent
+import com.inci.campuscompanion.notifications.EventNotificationHelper
 import com.inci.campuscompanion.worker.RefreshEventsWorker
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -52,8 +56,34 @@ class EventsViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = RefreshStatus.Idle
         )
 
+    private val preferences = UserPreferencesRepository(application.dataStore)
+    private val notificationHelper = EventNotificationHelper(application)
+
+    // The user's choice, saved in DataStore (off by default).
+    val notificationsEnabled: StateFlow<Boolean> = preferences.eventNotificationsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     init {
+        notificationHelper.createChannel()
         refresh()
+    }
+
+    fun hasNotificationPermission(): Boolean = notificationHelper.hasSystemPermission()
+
+    // Only called with true after the system permission was granted.
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setEventNotificationsEnabled(enabled)
+        }
+    }
+
+    fun sendTestNotification() {
+        if (notificationsEnabled.value) {
+            notificationHelper.showTestNotification()
+        }
     }
 
     fun refresh() {
