@@ -1,6 +1,9 @@
 package com.inci.campuscompanion.data.repository
 
 import com.inci.campuscompanion.data.network.EventsRemoteDataSource
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 // Domain model (UI-ready)
 data class CampusEvent(
@@ -13,8 +16,14 @@ data class CampusEvent(
 class EventsRepository(
     private val remote: EventsRemoteDataSource
 ) {
-    suspend fun getEvents(): List<CampusEvent> =
-        remote.getEvents().map { dto ->
+    private val _events = MutableStateFlow<List<CampusEvent>>(emptyList())
+    val events: StateFlow<List<CampusEvent>> = _events.asStateFlow()
+
+    /**
+     * Fetches the latest events from the remote data source, updates the in-memory cache, and returns the list.
+     */
+    suspend fun getEvents(): List<CampusEvent> {
+        val domainEvents = remote.getEvents().map { dto ->
             CampusEvent(
                 id = dto.id,
                 title = dto.title,
@@ -22,8 +31,15 @@ class EventsRepository(
                 locationLabel = dto.location ?: "TBA"
             )
         }
+        _events.value = domainEvents
+        return domainEvents
+    }
 
-    fun refreshEvents() {
-        TODO("Not yet implemented")
+    /**
+     * Refreshes campus events from the remote data source.
+     * Called by WorkManager background workers and manual refresh triggers.
+     */
+    suspend fun refreshEvents(): List<CampusEvent> {
+        return getEvents()
     }
 }

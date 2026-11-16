@@ -13,7 +13,7 @@ class CampusCompanionApp : Application(), Configuration.Provider {
     // the repository lives here so the Activity, ViewModels and the Worker all share one instance
     val eventsRepository: EventsRepository by lazy {
         val retrofit = Retrofit.Builder()
-            .baseUrl("https://YOUR_BASE_URL/")   // GUESS 1: copy from your existing Retrofit setup
+            .baseUrl("https://6ad70838f71f154ac4879fac.mockapi.io/api/v1/events/event/")   // GUESS 1: copy from your existing Retrofit setup
             .addConverterFactory(RefreshEventsWorkerFactory.create())   // GUESS 2: use whatever converter you already use
             .build()
         val api = retrofit.create(CampusApi::class.java)
