@@ -12,9 +12,13 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.notifications.EventNotifier
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -27,7 +31,22 @@ class RefreshEventWorker(
             val repository = EventsRepository(
                 EventsRemoteDataSource(RetrofitClient.campusApi),
             )
-            repository.refreshEvents()
+            val events = repository.refreshEvents()
+
+            val preferences = UserPreferencesRepository(applicationContext.dataStore)
+            val signature = events.map { it.id }.sorted().joinToString(",")
+            val lastSignature = preferences.lastEventsSignature.first()
+            val notificationsEnabled = preferences.notificationsEnabled.first()
+
+            if (notificationsEnabled && lastSignature.isNotEmpty() && signature != lastSignature) {
+                EventNotifier.show(
+                    applicationContext,
+                    "Events updated",
+                    "New campus events are available"
+                )
+            }
+            preferences.setLastEventsSignature(signature)
+
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
