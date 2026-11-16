@@ -22,6 +22,18 @@ class TasksViewModel(
         initialValue = false,
     )
 
+    val eventUpdatesEnabled: StateFlow<Boolean> = preferencesRepository.eventUpdatesEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
+
+    fun toggleEventUpdates(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventUpdatesEnabled(enabled)
+        }
+    }
+
     val tasks: StateFlow<List<Task>> = taskRepository.allTasks.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
