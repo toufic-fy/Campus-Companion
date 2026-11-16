@@ -33,11 +33,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notifications.EventNotificationHelper
+import com.inci.campuscompanion.ui.settings.EventUpdatesSetting
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
@@ -50,16 +53,30 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    TaskContent(
-        isDarkMode = isDarkMode,
-        onToggleDarkMode = onToggleDarkMode,
-        tasks = tasks,
-        onToggleTask = viewModel::toggleTaskCompletion,
-        onAddTask = viewModel::upsertTask,
-        onNavigateEvents = onNavigateEvents,
-        modifier = modifier
-    )
+    Column(modifier = modifier.fillMaxSize()) {
+        EventUpdatesSetting(
+            enabled = eventUpdatesEnabled,
+            onEnabledChange = viewModel::setEventUpdatesEnabled,
+            onSendTestNotification = {
+                EventNotificationHelper(context).showTestNotification()
+            }
+        )
+
+        HorizontalDivider()
+
+        TaskContent(
+            isDarkMode = isDarkMode,
+            onToggleDarkMode = onToggleDarkMode,
+            tasks = tasks,
+            onToggleTask = viewModel::toggleTaskCompletion,
+            onAddTask = viewModel::upsertTask,
+            onNavigateEvents = onNavigateEvents,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 @Composable

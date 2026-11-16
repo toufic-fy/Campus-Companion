@@ -22,6 +22,12 @@ class TasksViewModel(
         initialValue = false,
     )
 
+    val eventUpdatesEnabled: StateFlow<Boolean> = preferencesRepository.eventUpdatesEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false,
+    )
+
     val tasks: StateFlow<List<Task>> = taskRepository.allTasks.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -31,6 +37,12 @@ class TasksViewModel(
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun setEventUpdatesEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setEventUpdatesEnabled(enabled)
         }
     }
 
