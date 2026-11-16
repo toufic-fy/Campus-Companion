@@ -48,6 +48,7 @@ import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
 import com.inci.campuscompanion.data.dataStore
 import com.inci.campuscompanion.model.Task
+import com.inci.campuscompanion.notifications.EventNotifier
 import com.inci.campuscompanion.ui.MainViewModel
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 
@@ -66,11 +67,14 @@ class MainActivity : ComponentActivity() {
 
         val eventsRepository = EventsDependencies.repository(applicationContext)
         val refreshScheduler = EventsRefreshScheduler(WorkManager.getInstance(applicationContext))
+        EventNotifier(applicationContext).createChannel()
+        val openEvents = intent?.getStringExtra(EventNotifier.EXTRA_DESTINATION) ==
+            EventNotifier.DESTINATION_EVENTS
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             CampusCompanionTheme(darkTheme = isDarkMode) {
-                CampusApp(viewModel, eventsRepository, refreshScheduler)
+                CampusApp(viewModel, eventsRepository, refreshScheduler, openEventsOnStart = openEvents)
             }
         }
     }

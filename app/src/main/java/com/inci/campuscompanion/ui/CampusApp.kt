@@ -3,7 +3,11 @@ package com.inci.campuscompanion.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,16 +17,27 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.inci.campuscompanion.TaskScreen
 import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.notifications.NotificationPermissionCard
 import com.inci.campuscompanion.work.EventsRefreshScheduler
 
 @Composable
 fun CampusApp(
     mainViewModel: MainViewModel,
     eventsRepository: EventsRepository,
-    refreshScheduler: EventsRefreshScheduler
+    refreshScheduler: EventsRefreshScheduler,
+    openEventsOnStart: Boolean = false
 ) {
     val navController = rememberNavController()
     AppNavHost(navController, mainViewModel, eventsRepository, refreshScheduler)
+
+    // Opened from a "new events" notification: land on the events screen, with tasks below it.
+    var handledDeepLink by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(openEventsOnStart) {
+        if (openEventsOnStart && !handledDeepLink) {
+            handledDeepLink = true
+            navController.navigate("events")
+        }
+    }
 }
 
 @Composable
@@ -57,7 +72,8 @@ fun AppNavHost(
                 state = state,
                 onRefresh = eventsViewModel::refresh,
                 onLoadMore = eventsViewModel::loadMore,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                header = { NotificationPermissionCard() }
             )
         }
     }

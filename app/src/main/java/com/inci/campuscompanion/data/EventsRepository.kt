@@ -42,12 +42,18 @@ class EventsRepository(
         return events
     }
 
-    suspend fun refreshEvents() = refreshLock.withLock {
+    /**
+     * Replaces the cached first page and returns the events that were not cached before.
+     * The very first load returns an empty list, so a fresh install is not reported as "new".
+     */
+    suspend fun refreshEvents(): List<CampusEvent> = refreshLock.withLock {
+        val previousIds = if (cache.getPagination() != null) cache.getEventIds().toSet() else null
         val events = getEvents(1)
         cache.replaceEvents(
             events.mapIndexed { index, event -> event.cachedAt(index) },
             nextPage = if (events.size == PAGE_SIZE) 2 else null
         )
+        if (previousIds == null) emptyList() else events.filterNot { it.id in previousIds }
     }
 
     suspend fun loadNextPage() = refreshLock.withLock {

@@ -35,7 +35,8 @@ fun EventsScreen(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    header: @Composable () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(state.refresh.status) {
@@ -60,6 +61,7 @@ fun EventsScreen(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            header()
             Text(
                 text = when (state.refresh.status) {
                     RefreshStatus.Idle -> "Ready to refresh."

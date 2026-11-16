@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.inci.campuscompanion.data.EventsDependencies
 import com.inci.campuscompanion.data.EventsRepository
+import com.inci.campuscompanion.notifications.EventNotifier
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
@@ -14,15 +15,17 @@ import retrofit2.HttpException
 class RefreshEventsWorker(
     appContext: Context,
     params: WorkerParameters,
-    private val repository: EventsRepository
+    private val repository: EventsRepository,
+    private val notifier: EventNotifier = EventNotifier(appContext)
 ) : CoroutineWorker(appContext, params) {
     constructor(appContext: Context, params: WorkerParameters) : this(
         appContext, params, EventsDependencies.repository(appContext)
     )
 
     override suspend fun doWork(): Result = try {
-        repository.refreshEvents()
-        Result.success()
+        val newEvents = repository.refreshEvents()
+        notifier.notifyNewEvents(newEvents)
+        Result.success(workDataOf(NEW_EVENT_COUNT to newEvents.size))
     } catch (error: CancellationException) {
         throw error
     } catch (error: IOException) {
@@ -40,5 +43,6 @@ class RefreshEventsWorker(
 
     companion object {
         const val ERROR_MESSAGE = "refresh-error"
+        const val NEW_EVENT_COUNT = "new-event-count"
     }
 }
