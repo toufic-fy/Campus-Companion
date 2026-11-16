@@ -18,9 +18,10 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val EVENT_UPDATES_ENABLED = booleanPreferencesKey("event_updates_enabled")
     }
 
-    val isDarkMode: Flow<Boolean> = dataStore.data
+    private val safeData: Flow<Preferences> = dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -28,13 +29,26 @@ class UserPreferencesRepository(private val dataStore: DataStore<Preferences>) {
                 throw exception
             }
         }
+
+    val isDarkMode: Flow<Boolean> = safeData
         .map { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] ?: false
+        }
+
+    val eventUpdatesEnabled: Flow<Boolean> = safeData
+        .map { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] ?: false
         }
 
     suspend fun setDarkMode(isDarkMode: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_DARK_MODE] = isDarkMode
+        }
+    }
+
+    suspend fun setEventUpdatesEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EVENT_UPDATES_ENABLED] = enabled
         }
     }
 }
