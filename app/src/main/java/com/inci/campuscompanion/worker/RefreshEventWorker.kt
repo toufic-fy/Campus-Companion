@@ -12,6 +12,7 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.inci.campuscompanion.data.local.AppDatabase
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
@@ -26,6 +27,7 @@ class RefreshEventWorker(
         return try {
             val repository = EventsRepository(
                 EventsRemoteDataSource(RetrofitClient.campusApi),
+                AppDatabase.getDatabase(applicationContext).eventDao(),
             )
             repository.refreshEvents()
             Result.success()
