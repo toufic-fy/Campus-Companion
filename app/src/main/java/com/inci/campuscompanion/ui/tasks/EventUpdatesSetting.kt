@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.inci.campuscompanion.notification.EventNotificationHelper
 import com.inci.campuscompanion.notification.NotificationPermission
 
 @Composable
@@ -69,6 +70,12 @@ fun EventUpdatesSetting(
                     }
                 }
             )
+        }
+
+        if (enabled && permissionGranted) {
+            TextButton(onClick = { EventNotificationHelper.postTest(context) }) {
+                Text("Send test notification")
+            }
         }
 
         if (enabled && !permissionGranted) {
