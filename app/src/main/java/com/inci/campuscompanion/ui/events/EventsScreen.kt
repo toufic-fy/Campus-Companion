@@ -85,6 +85,7 @@ fun EventsScreen(
         modifier = modifier
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
+            EventNotificationSettings(viewModel = viewModel)
             if (workStateLabel != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,

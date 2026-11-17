@@ -12,9 +12,8 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
-import com.inci.campuscompanion.data.remote.api.RetrofitClient
-import com.inci.campuscompanion.data.repository.EventsRepository
+import com.inci.campuscompanion.CampusApplication
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -24,11 +23,10 @@ class RefreshEventWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            val repository = EventsRepository(
-                EventsRemoteDataSource(RetrofitClient.campusApi),
-            )
-            repository.refreshEvents()
+            (applicationContext as CampusApplication).refreshEvents()
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             Result.retry()

@@ -2,12 +2,28 @@ package com.inci.campuscompanion.data.repository
 
 import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.model.CampusEvent
+import com.inci.campuscompanion.data.local.dao.EventDao
+import com.inci.campuscompanion.data.local.entity.EventEntity
+import com.inci.campuscompanion.notifications.newlyPublishedEvents
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class EventsRepository(private val remoteDataSource: EventsRemoteDataSource) {
+class EventsRepository(
+    private val remoteDataSource: EventsRemoteDataSource,
+    private val eventDao: EventDao,
+) {
+    private val refreshMutex = Mutex()
+
+    val events = eventDao.observeEvents().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun getCachedEvents(): List<CampusEvent> = eventDao.getEvents()
+        .sortedWith(compareBy<EventEntity> { it.startsAt }.thenBy { it.id })
+        .map { it.toDomain() }
 
     suspend fun getEvents(): List<CampusEvent> =
         remoteDataSource.getEvents().map { dto ->
@@ -22,7 +38,25 @@ class EventsRepository(private val remoteDataSource: EventsRemoteDataSource) {
             )
         }
 
-    suspend fun refreshEvents(): List<CampusEvent> = getEvents()
+    suspend fun refreshEvents(): List<CampusEvent> = refreshMutex.withLock {
+        val refreshed = getEvents().distinctBy { it.id }
+        val newEvents = newlyPublishedEvents(
+            previousIds = eventDao.getEvents().map { it.id }.toSet(),
+            refreshedEvents = refreshed,
+            hasRefreshed = eventDao.hasRefreshed(),
+            id = { it.id },
+        )
+        // Commit the snapshot first: retries/restarts do not notify for the same data.
+        eventDao.replaceEvents(refreshed.map {
+            EventEntity(it.id, it.title, it.description, it.startsAt, it.endsAt, it.locationLabel)
+        })
+        newEvents
+    }
+
+    private fun EventEntity.toDomain() = CampusEvent(
+        id, title, description, startsAt, endsAt,
+        formatTimeLabel(startsAt, endsAt), location,
+    )
 
     private fun formatTimeLabel(startsAt: String, endsAt: String?): String {
         val startDate = parseIsoDate(startsAt)

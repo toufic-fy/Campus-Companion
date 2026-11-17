@@ -4,14 +4,30 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.inci.campuscompanion.data.local.dao.EventDao
+import com.inci.campuscompanion.data.local.entity.EventEntity
+import com.inci.campuscompanion.data.local.entity.EventsRefreshState
 import com.inci.campuscompanion.data.local.dao.TaskDao
 import com.inci.campuscompanion.data.local.entity.TaskEntity
 
-@Database(entities = [TaskEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [TaskEntity::class, EventEntity::class, EventsRefreshState::class],
+    version = 2,
+    exportSchema = false,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
+    abstract fun eventDao(): EventDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS events (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, startsAt TEXT NOT NULL, endsAt TEXT, location TEXT)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS events_refresh_state (id INTEGER NOT NULL PRIMARY KEY)")
+            }
+        }
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -21,7 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "campus_companion_db"
-                ).build()
+                ).addMigrations(MIGRATION_1_2).build()
                 INSTANCE = instance
                 instance
             }
