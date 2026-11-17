@@ -9,6 +9,7 @@ import com.inci.campuscompanion.data.InvalidEventDataException
 import com.inci.campuscompanion.model.CampusEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
