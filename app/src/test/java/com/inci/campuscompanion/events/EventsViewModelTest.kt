@@ -81,4 +81,41 @@ class EventsViewModelTest {
         assertFalse(messages.joinToString().contains("private server response"))
     }
 
+    @Test fun offlineRefreshKeepsSavedEventsVisibleAndBackgroundCacheUpdatesTheUi() = runTest(dispatcher) {
+        val saved = CampusEvent("1", "Saved event", "Today", "Campus", "")
+        val cache = kotlinx.coroutines.flow.MutableStateFlow(listOf(saved))
+        val source = object : com.inci.campuscompanion.data.CachedEventsSource {
+            override val cachedEvents = cache
+            override suspend fun getEvents(): List<CampusEvent> = throw IOException("Offline")
+        }
+        val viewModel = EventsViewModel(source)
+        advanceUntilIdle()
+        val offline = viewModel.uiState.value as EventsUiState.Content
+        assertEquals(listOf(saved), offline.events)
+        assertTrue(offline.refreshMessage!!.contains("Showing saved events"))
+        val updated = saved.copy(title = "Updated in background")
+        cache.value = listOf(updated)
+        advanceUntilIdle()
+        assertEquals(listOf(updated), (viewModel.uiState.value as EventsUiState.Content).events)
+        cache.value = emptyList()
+        advanceUntilIdle()
+        assertEquals(EventsUiState.Empty, viewModel.uiState.value)
+    }
+
+    @Test fun emptyBackgroundSuccessClearsAnOfflineErrorWithoutAChangedCacheList() = runTest(dispatcher) {
+        val cache = kotlinx.coroutines.flow.MutableStateFlow(emptyList<CampusEvent>())
+        val completions = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val source = object : com.inci.campuscompanion.data.CachedEventsSource {
+            override val cachedEvents = cache
+            override val refreshCompletions = completions
+            override suspend fun getEvents(): List<CampusEvent> = throw IOException("Offline")
+        }
+        val viewModel = EventsViewModel(source)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value is EventsUiState.Error)
+        completions.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(EventsUiState.Empty, viewModel.uiState.value)
+    }
+
 }

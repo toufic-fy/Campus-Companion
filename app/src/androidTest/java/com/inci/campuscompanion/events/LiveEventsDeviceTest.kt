@@ -46,7 +46,7 @@ class LiveEventsDeviceTest {
 
     @Test fun actualAppLoadsLiveEventsAndRecoversAfterDeviceNetworkIsDisabled() {
         try {
-            compose.onNodeWithText("Events", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Campus events", useUnmergedTree = true).performClick()
             awaitContent()
             capture("01-live-content", "Real MainActivity loaded event cards from the production HTTPS API")
 
@@ -57,15 +57,16 @@ class LiveEventsDeviceTest {
             assertEquals("1", shell("settings get global airplane_mode_on").trim())
             compose.onNodeWithText("Refresh").performClick()
             compose.waitUntil(45_000) {
-                compose.onAllNodesWithText("Retry").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithText("Showing saved events. Unable to connect. Check your internet connection and retry.").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Unable to connect. Check your internet connection and retry.").assertIsDisplayed()
-            capture("02-real-offline-error", "Airplane mode on, Wi-Fi/data disabled; real network request failed; Retry visible")
+            compose.onNodeWithText("Showing saved events. Unable to connect. Check your internet connection and retry.").assertIsDisplayed()
+            compose.onNodeWithTag("events-content").assertIsDisplayed()
+            capture("02-real-offline-cache", "Airplane mode on; saved event cards remain visible after refresh fails")
 
             restoreConnectivity()
             Thread.sleep(8_000)
             assertEquals("0", shell("settings get global airplane_mode_on").trim())
-            compose.onNodeWithText("Retry").performClick()
+            compose.onNodeWithText("Refresh").performClick()
             awaitContent()
             capture("03-live-retry-recovery", "Connectivity restored; Retry fetched live event cards again")
         } finally {
