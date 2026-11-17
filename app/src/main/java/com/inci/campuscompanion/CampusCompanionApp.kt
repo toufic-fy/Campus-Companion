@@ -8,6 +8,7 @@ import com.inci.campuscompanion.data.network.EventsRemoteDataSource
 import com.inci.campuscompanion.work.RefreshEventsWorkerFactory
 import retrofit2.Retrofit
 import com.inci.campuscompanion.notifications.createEventUpdatesChannel
+import com.inci.campuscompanion.notifications.NotificationSettingsRepository
 class CampusCompanionApp : Application(), Configuration.Provider {
 
     // the repository lives here so the Activity, ViewModels and the Worker all share one instance
@@ -19,11 +20,13 @@ class CampusCompanionApp : Application(), Configuration.Provider {
         val api = retrofit.create(CampusApi::class.java)
         EventsRepository(EventsRemoteDataSource(api))   // GUESS 3: match your real constructor
     }
+    val notificationSettingsRepository by lazy {
+        NotificationSettingsRepository(this)
+    }
     override fun onCreate() {
         super.onCreate()
         createEventUpdatesChannel(this)
     }
-
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(RefreshEventsWorkerFactory(eventsRepository))
