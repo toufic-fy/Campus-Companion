@@ -22,13 +22,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 
 @Composable
-fun EventsScreen(state: EventsUiState, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+fun EventsScreen(state: EventsUiState, onRefresh: () -> Unit, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
     Column(modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (onBack != null) {
+                TextButton(onClick = onBack) { Text("Back") }
+            }
             Text("Campus Events", style = MaterialTheme.typography.titleLarge)
             TextButton(onClick = onRefresh, enabled = state !is EventsUiState.Loading) {
                 Text("Refresh")
