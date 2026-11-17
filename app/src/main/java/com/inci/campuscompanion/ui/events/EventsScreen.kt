@@ -1,5 +1,12 @@
+
 package com.inci.campuscompanion.ui.events
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,23 +36,32 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.inci.campuscompanion.R
+import com.inci.campuscompanion.data.local.pref.UserPreferencesRepository
+import com.inci.campuscompanion.data.local.pref.dataStore
 import com.inci.campuscompanion.model.CampusEvent
+import com.inci.campuscompanion.notifications.EventNotificationHelper
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,8 +69,31 @@ fun EventsScreen(
     viewModel: CampusEventViewModel,
     modifier: Modifier = Modifier
 ) {
+    // Existing Events and WorkManager states
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+
+    // DataStore notification preference
+    val context = LocalContext.current
+
+    val preferencesRepository = remember(context) {
+        UserPreferencesRepository(context.dataStore)
+    }
+
+    val eventUpdatesEnabled by preferencesRepository
+        .eventUpdatesEnabled
+        .collectAsStateWithLifecycle(initialValue = false)
+
+    val scope = rememberCoroutineScope()
+
+    // Android 13+ permission request
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        scope.launch {
+            preferencesRepository.setEventUpdatesEnabled(granted)
+        }
+    }
 
     val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
     val workStateLabel = workInfo?.state?.name
@@ -72,7 +111,9 @@ fun EventsScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        IconButton(onClick = { viewModel.loadEvents() }) {
+                        IconButton(
+                            onClick = { viewModel.loadEvents() }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh events"
@@ -84,7 +125,107 @@ fun EventsScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
+
+        Column(
+            modifier = Modifier.padding(innerPadding)
+        ) {
+
+            // Event updates preference switch
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 12.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Event updates",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = "Receive notifications about new campus events",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Switch(
+                    checked = eventUpdatesEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            scope.launch {
+                                preferencesRepository
+                                    .setEventUpdatesEnabled(false)
+                            }
+                        } else {
+                            if (
+                                Build.VERSION.SDK_INT >=
+                                Build.VERSION_CODES.TIRAMISU
+                            ) {
+                                val permissionGranted =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) == PackageManager.PERMISSION_GRANTED
+
+                                if (permissionGranted) {
+                                    scope.launch {
+                                        preferencesRepository
+                                            .setEventUpdatesEnabled(true)
+                                    }
+                                } else {
+                                    permissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    )
+                                }
+                            } else {
+                                scope.launch {
+                                    preferencesRepository
+                                        .setEventUpdatesEnabled(true)
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+            // Temporary button for Checkpoint 5
+            Button(
+                onClick = {
+                    scope.launch {
+                        val sent = EventNotificationHelper
+                            .showTestNotification(context)
+
+                        Toast.makeText(
+                            context,
+                            if (sent) {
+                                "Test notification sent"
+                            } else {
+                                "Notifications are not enabled or permitted"
+                            },
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 8.dp
+                    ),
+                enabled = eventUpdatesEnabled
+            ) {
+                Text("Send test notification")
+            }
+
+            // Existing WorkManager status indicator
             if (workStateLabel != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -94,11 +235,15 @@ fun EventsScreen(
                         text = "WorkManager Status: $workStateLabel",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(
+                            horizontal = 16.dp,
+                            vertical = 6.dp
+                        )
                     )
                 }
             }
 
+            // Existing Events content
             EventsContent(
                 uiState = uiState,
                 onRetry = { viewModel.loadEvents() },
@@ -119,13 +264,16 @@ fun EventsContent(
         contentAlignment = Alignment.Center
     ) {
         when (uiState) {
+
             is EventsUiState.Loading -> {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator()
+
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Text(
                         text = "Fetching events...",
                         style = MaterialTheme.typography.bodyMedium,
@@ -147,7 +295,9 @@ fun EventsContent(
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.outline
                         )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
                             text = "No upcoming events found.",
                             style = MaterialTheme.typography.titleMedium,
@@ -181,13 +331,17 @@ fun EventsContent(
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.error
                     )
+
                     Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
                         text = uiState.message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Button(onClick = onRetry) {
                         Text("Retry")
                     }
@@ -204,7 +358,9 @@ fun EventCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -223,16 +379,19 @@ fun EventCard(
 
             if (event.description.isNotBlank()) {
                 Spacer(modifier = Modifier.height(6.dp))
+
                 Text(
                     text = event.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = 0.8f
+                    )
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Time Row
+            // Event time
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -242,7 +401,9 @@ fun EventCard(
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
+
                 Spacer(modifier = Modifier.width(8.dp))
+
                 Text(
                     text = event.timeLabel,
                     style = MaterialTheme.typography.labelLarge,
@@ -252,7 +413,7 @@ fun EventCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Location Row
+            // Event location
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -262,9 +423,12 @@ fun EventCard(
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
+
                 Spacer(modifier = Modifier.width(8.dp))
+
                 Text(
-                    text = event.locationLabel ?: stringResource(R.string.tba),
+                    text = event.locationLabel
+                        ?: stringResource(R.string.tba),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
