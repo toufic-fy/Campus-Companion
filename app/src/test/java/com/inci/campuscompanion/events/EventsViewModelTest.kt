@@ -102,4 +102,20 @@ class EventsViewModelTest {
         assertEquals(EventsUiState.Empty, viewModel.uiState.value)
     }
 
+    @Test fun emptyBackgroundSuccessClearsAnOfflineErrorWithoutAChangedCacheList() = runTest(dispatcher) {
+        val cache = kotlinx.coroutines.flow.MutableStateFlow(emptyList<CampusEvent>())
+        val completions = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val source = object : com.inci.campuscompanion.data.CachedEventsSource {
+            override val cachedEvents = cache
+            override val refreshCompletions = completions
+            override suspend fun getEvents(): List<CampusEvent> = throw IOException("Offline")
+        }
+        val viewModel = EventsViewModel(source)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value is EventsUiState.Error)
+        completions.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(EventsUiState.Empty, viewModel.uiState.value)
+    }
+
 }

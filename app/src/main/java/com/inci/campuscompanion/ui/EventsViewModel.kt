@@ -9,6 +9,7 @@ import com.inci.campuscompanion.data.InvalidEventDataException
 import com.inci.campuscompanion.model.CampusEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,13 @@ class EventsViewModel(
     private var cached: List<CampusEvent> = emptyList()
     init {
         if (repository is CachedEventsSource) {
+            viewModelScope.launch {
+                repository.refreshCompletions.collect {
+                    // Read Room after the successful transaction, including a genuinely empty feed.
+                    cached = repository.cachedEvents.first()
+                    _uiState.value = if (cached.isEmpty()) EventsUiState.Empty else EventsUiState.Content(cached)
+                }
+            }
             viewModelScope.launch {
                 repository.cachedEvents.collect { events ->
                     cached = events
