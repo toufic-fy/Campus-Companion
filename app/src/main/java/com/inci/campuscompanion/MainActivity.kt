@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val eventsViewModel: EventsViewModel by viewModels {
-            EventsViewModel.Factory(EventsRepository(EventsRemoteDataSource(EventsNetwork.api)))
+            EventsViewModel.Factory((application as CampusApplication).graph.events)
         }
 
         setContent {

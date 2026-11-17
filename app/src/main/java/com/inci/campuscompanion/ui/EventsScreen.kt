@@ -37,6 +37,9 @@ fun EventsScreen(state: EventsUiState, onRefresh: () -> Unit, modifier: Modifier
                 Text("Refresh")
             }
         }
+        if (state is EventsUiState.Content && state.refreshMessage != null) {
+            Text(state.refreshMessage, modifier = Modifier.padding(16.dp))
+        }
         when (state) {
             EventsUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()

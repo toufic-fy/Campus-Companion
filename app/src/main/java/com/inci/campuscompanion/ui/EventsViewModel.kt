@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.inci.campuscompanion.data.EventsSource
+import com.inci.campuscompanion.data.CachedEventsSource
 import com.inci.campuscompanion.data.InvalidEventDataException
 import com.inci.campuscompanion.model.CampusEvent
 import kotlinx.coroutines.CancellationException
@@ -18,7 +19,7 @@ import java.util.logging.Logger
 
 sealed interface EventsUiState {
     data object Loading : EventsUiState
-    data class Content(val events: List<CampusEvent>) : EventsUiState
+    data class Content(val events: List<CampusEvent>, val refreshMessage: String? = null) : EventsUiState
     data object Empty : EventsUiState
     data class Error(val message: String) : EventsUiState
 }
@@ -31,12 +32,24 @@ class EventsViewModel(
     val uiState = _uiState.asStateFlow()
     private var loadJob: Job? = null
 
-    init { refresh() }
+    private var cached: List<CampusEvent> = emptyList()
+    init {
+        if (repository is CachedEventsSource) {
+            viewModelScope.launch {
+                repository.cachedEvents.collect { events ->
+                    cached = events
+                    if (events.isNotEmpty()) _uiState.value = EventsUiState.Content(events)
+                    else if (_uiState.value is EventsUiState.Content) _uiState.value = EventsUiState.Empty
+                }
+            }
+        }
+        refresh()
+    }
 
     fun refresh() {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            _uiState.value = EventsUiState.Loading
+            if (cached.isEmpty()) _uiState.value = EventsUiState.Loading
             try {
                 val events = repository.getEvents()
                 _uiState.value = if (events.isEmpty()) EventsUiState.Empty else EventsUiState.Content(events)
@@ -45,7 +58,8 @@ class EventsViewModel(
             } catch (error: Exception) {
                 // Log the failure type, never response bodies, URLs, or personal data.
                 logger.warning("Events request failed: ${error.javaClass.simpleName}")
-                _uiState.value = EventsUiState.Error(errorMessage(error))
+                _uiState.value = if (cached.isEmpty()) EventsUiState.Error(errorMessage(error))
+                    else EventsUiState.Content(cached, "Showing saved events. " + errorMessage(error))
             }
         }
     }
