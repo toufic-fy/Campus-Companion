@@ -3,6 +3,10 @@ package com.inci.campuscompanion.events
 import com.inci.campuscompanion.data.*
 import com.inci.campuscompanion.model.CampusEvent
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -89,4 +93,19 @@ class CachedEventsRepositoryTest {
         assertEquals(listOf(event("1")), repository.getEvents())
         assertEquals(listOf(event("1")), cache.events.value)
     }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun unchangedEmptyRefreshesStillEmitSuccessAfterTheCacheTransaction() = runTest {
+        val cache = Cache()
+        val repository = CachedEventsRepository(object : EventsSource {
+            override suspend fun getEvents() = emptyList<CampusEvent>()
+        }, cache)
+        val results = async(UnconfinedTestDispatcher(testScheduler)) {
+            repository.refreshCompletions.take(2).toList()
+        }
+        repository.getEvents()
+        assertTrue(cache.ready)
+        repository.getEvents()
+        assertEquals(2, results.await().size)
+    }
+
 }
