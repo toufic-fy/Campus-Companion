@@ -1,5 +1,7 @@
 # Campus Events API — Charbel
 
+This document records the earlier API-only workshop and its historical checks. The current branch adds navigation, Room Events caching, background refresh and notifications; see WORKSHOPS.md and VALIDATION.md for the current scope and validation.
+
 Branch: `feature/charbel-events-api`
 
 ## Implemented
