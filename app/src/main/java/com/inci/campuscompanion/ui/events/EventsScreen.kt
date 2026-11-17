@@ -40,12 +40,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.work.WorkInfo
 import com.inci.campuscompanion.R
 import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.CampusEventViewModel
 import com.inci.campuscompanion.ui.view_model.EventsUiState
+import com.inci.campuscompanion.ui.view_model.RefreshStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,10 +54,9 @@ fun EventsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val workInfo by viewModel.workInfo.collectAsStateWithLifecycle()
+    val refreshStatus by viewModel.refreshStatus.collectAsStateWithLifecycle()
 
-    val isSyncing = workInfo?.state == WorkInfo.State.RUNNING
-    val workStateLabel = workInfo?.state?.name
+    val isSyncing = refreshStatus == RefreshStatus.Refreshing
 
     Scaffold(
         topBar = {
@@ -72,7 +71,7 @@ fun EventsScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        IconButton(onClick = { viewModel.loadEvents() }) {
+                        IconButton(onClick = { viewModel.refresh() }) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh events"
@@ -85,13 +84,13 @@ fun EventsScreen(
         modifier = modifier
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            if (workStateLabel != null) {
+            refreshStatus?.let { status ->
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "WorkManager Status: $workStateLabel",
+                        text = status.label,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -101,7 +100,7 @@ fun EventsScreen(
 
             EventsContent(
                 uiState = uiState,
-                onRetry = { viewModel.loadEvents() },
+                onRetry = { viewModel.refresh() },
                 modifier = Modifier.weight(1f)
             )
         }

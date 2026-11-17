@@ -40,7 +40,8 @@ class MainActivity : ComponentActivity() {
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
         val eventsRepository = EventsRepository(
-            EventsRemoteDataSource(RetrofitClient.campusApi)
+            EventsRemoteDataSource(RetrofitClient.campusApi),
+            database.eventDao()
         )
 
         val tasksViewModel: TasksViewModel by viewModels {
