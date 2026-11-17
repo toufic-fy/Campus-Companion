@@ -46,7 +46,7 @@ class LiveEventsDeviceTest {
 
     @Test fun actualAppLoadsLiveEventsAndRecoversAfterDeviceNetworkIsDisabled() {
         try {
-            compose.onNodeWithText("Events", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Campus events", useUnmergedTree = true).performClick()
             awaitContent()
             capture("01-live-content", "Real MainActivity loaded event cards from the production HTTPS API")
 

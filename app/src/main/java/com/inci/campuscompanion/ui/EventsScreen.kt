@@ -9,6 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,22 +27,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(state: EventsUiState, onRefresh: () -> Unit, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
     Column(modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onBack != null) {
-                TextButton(onClick = onBack) { Text("Back") }
-            }
-            Text("Campus Events", style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onRefresh, enabled = state !is EventsUiState.Loading) {
-                Text("Refresh")
-            }
-        }
+        TopAppBar(
+            title = { Text("Campus Events") },
+            navigationIcon = {
+                if (onBack != null) IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+            },
+            actions = {
+                TextButton(onClick = onRefresh, enabled = state !is EventsUiState.Loading) { Text("Refresh") }
+            },
+            windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+        )
         when (state) {
             EventsUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
