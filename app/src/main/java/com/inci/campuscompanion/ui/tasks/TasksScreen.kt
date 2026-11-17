@@ -50,16 +50,24 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val eventUpdatesEnabled by viewModel.eventUpdatesEnabled.collectAsStateWithLifecycle()
 
-    TaskContent(
-        isDarkMode = isDarkMode,
-        onToggleDarkMode = onToggleDarkMode,
-        tasks = tasks,
-        onToggleTask = viewModel::toggleTaskCompletion,
-        onAddTask = viewModel::upsertTask,
-        onNavigateEvents = onNavigateEvents,
-        modifier = modifier
-    )
+    Column(modifier = modifier.fillMaxSize()) {
+        EventUpdatesSetting(
+            enabled = eventUpdatesEnabled,
+            onEnabledChange = viewModel::setEventUpdatesEnabled
+        )
+        HorizontalDivider()
+        TaskContent(
+            isDarkMode = isDarkMode,
+            onToggleDarkMode = onToggleDarkMode,
+            tasks = tasks,
+            onToggleTask = viewModel::toggleTaskCompletion,
+            onAddTask = viewModel::upsertTask,
+            onNavigateEvents = onNavigateEvents,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 @Composable
