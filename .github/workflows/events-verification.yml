@@ -1,7 +1,7 @@
-name: Charbel events verification
+name: Charbel workshop verification
 on:
   push:
-    branches: [feature/charbel-events-api]
+    branches: [feature/charbel-events-api, feature/charbel-workshop-completion, feature/charbel-notifications]
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: charbel-events-apk-and-test-reports
+          name: charbel-workshops-apk-and-test-reports
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/reports/

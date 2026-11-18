@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -42,7 +44,7 @@ fun NotificationSettings(graph: AppGraph) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Event updates")
-            Switch(checked = enabled, onCheckedChange = { wantUpdates ->
+            Switch(modifier = Modifier.semantics { contentDescription = "Event updates" }, checked = enabled, onCheckedChange = { wantUpdates ->
                 scope.launch {
                     graph.preferences.setEventUpdatesEnabled(wantUpdates)
                     if (wantUpdates && Build.VERSION.SDK_INT >= 33 && !graph.notifications.hasRuntimePermission()) {
