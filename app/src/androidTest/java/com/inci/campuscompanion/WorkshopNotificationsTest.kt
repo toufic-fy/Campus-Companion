@@ -17,6 +17,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
 import java.io.FileInputStream
 
 /** Exercises the real permission dialog, OS notification and its PendingIntent.
@@ -24,6 +26,18 @@ import java.io.FileInputStream
  */
 class WorkshopNotificationsTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private lateinit var activity: MainActivity
+    private lateinit var launchIntent: android.content.Intent
+
+    @Before fun rememberLaunchIntent() {
+        activity = compose.activity
+        launchIntent = android.content.Intent(activity.intent)
+    }
+
+    @After fun restoreIntentForScenarioCleanup() {
+        // Restore the test runner's lifecycle-matching Intent after exercising real notification entry.
+        instrumentation.runOnMainSync { activity.intent = launchIntent }
+    }
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun shell(command: String) = instrumentation.uiAutomation.executeShellCommand(command).use {
         FileInputStream(it.fileDescriptor).bufferedReader().use { reader -> reader.readText() }
