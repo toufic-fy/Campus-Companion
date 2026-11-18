@@ -1,23 +1,37 @@
-# Workshop validation — 17 November 2026
+# Three workshop verification 18 November 2026
 
-The final source was checked with Gradle 9.6.0, JDK 25, and Android SDK 37.0.
+Student: Charbel Ghossoub. Course account: cghsb.
 
-## Passed
+Verified code commit: a9c4c8904431c3dfb5ac16b79ca7335612af6195.
+Successful run: https://github.com/cghsb/Campus-Companion/actions/runs/44281864413
 
-- `testDebugUnitTest assembleDebug lintDebug assembleDebugAndroidTest`: BUILD SUCCESSFUL.
-- 17 unit tests, zero failures or errors: 5 remote repository tests, 5 ViewModel tests, 6 cache/notification-deduplication tests, and the existing example test.
-- Debug application APK and instrumentation-test APK both built successfully.
-- Android lint: zero errors, 23 warnings. Warnings cover dependency/version recommendations, a redundant manifest label, and unused resources; none report missing runtime-permission checks.
-- Device-test sources compile, including `WorkshopNavigationTest` and `EventsMigrationTest`.
-- Read-only HTTPS check of the production Events API: 50 records with the expected fields, valid date ranges and unique IDs. No API records were modified.
-- `git diff --check` passes. The published implementation tree was checked against the local tree.
+## Results
 
-## Still requires an emulator or device
+- Debug APK built successfully with Gradle 9.6.0, JDK 25 and Android SDK 37.0.
+- All 17 JVM unit tests passed: 5 remote repository, 5 ViewModel, 6 cache/deduplication and the existing example test. Zero failures and zero skipped tests.
+- Android lint completed successfully. Dependency/version and resource warnings remain; the run did not suppress lint errors.
+- All 13 instrumentation tests passed on an Android API 35 emulator. Zero failures, errors or skipped tests.
+- The workflow artifact contains the APK, HTML/XML reports, screenshots and relevant logs. No shared API records were modified.
 
-No connected Android tests were executed during this task. Compilation does not establish runtime behavior of system permission dialogs, notification delivery, notification taps, system Back or a real database upgrade. Run the navigation and migration tests and demonstrate the permission-denied, preference-off, unchanged-feed and allowed-new-event cases on Android 13 or newer. Test notification entry with the app both closed and already open.
+## Device coverage
 
-The earlier API-only report in EVENTS_API_README.md contains historical device-test results; those results are not validation of these new workshops.
+- Navigation: Tasks opens first; the Events action, toolbar Back and actual Android system Back return to Tasks. An incoming notification URI while the app is open reaches Events and preserves the Tasks Back stack.
+- Room migration: an actual version-1 database retains its saved Task and gains a usable Events cache, baseline and seen-ID history.
+- Background work: five offline refresh requests produce one unique queued WorkManager request. Restoring real emulator connectivity makes that same request succeed and write live Events into Room.
+- Notifications: no startup permission prompt; opt-in triggers the Android permission dialog; denial preserves the preference and leaves the app usable without posting. After permission is granted, the test notification has a title, small icon, auto-cancel flag and working PendingIntent into Events.
+- Notification policy: a first refresh is silent; a genuinely new ID posts once; unchanged refreshes do not duplicate it; preference off suppresses delivery while the cache still updates; enabling later does not replay unchanged events. Controlled new-event responses use an isolated Room cache.
+- Events API: all four failure-exercise scenarios pass. The production MainActivity loads live data, retains saved cards offline and recovers after connectivity returns.
 
-WORKSHOPS.md contains the demonstration sequence and design explanations. The third PDF was not supplied; its background-work scope was inferred from the notification PDF prerequisites and Kerbagio's reference implementation.
+## Corrections verified
 
-The source comparison in COMPARISON.md identified an empty-background-refresh recovery bug. The regression failed before the fix; the corrected code passes the full 17-test suite, lint, application build and instrumentation-test APK build. Standalone workshop branch corrections are also described there.
+The first device runs exposed a Back handling issue and a test method with a non-void JVM signature. Events now handles system Back at the navigation boundary; MainActivity uses singleTop for notification entry; the WorkManager test returns Unit explicitly.
+
+Notification entry also exposed an ActivityScenario cleanup limitation: the runner filters lifecycle events by the original launch Intent, while the app correctly calls setIntent for an incoming notification. The tests retain and restore the launch Intent only for cleanup, after all real entry and Back assertions have run. No app assertions were removed. The complete rerun above passes.
+
+## Scope and practical limits
+
+The Navigation and Notifications PDFs supplied for the assignment are the primary requirements. The missing third handout's WorkManager/Room scope was inferred from the Notifications prerequisites and Kerbagio's public WorkManager PR #66, as requested. His Navigation and Notifications PRs were reviewed as references; this implementation preserves its own integrated cache and architecture.
+
+Runtime verification covers Android API 35. Notification PendingIntent delivery is tested with an already-open app; cold notification entry is implemented but is not a separate automated case in this run. WorkManager timing is deferrable, not an exact reminder guarantee.
+
+WORKSHOP_COMPLETION.md explains the integrated requirements, teacher-base merge and Refresh layers. WORKSHOPS.md provides the demonstration sequence. COMPARISON.md and WORKSHOP_BRANCH_CHECKS.md retain the dated 17 November source-audit history; their earlier device-testing limitations are superseded by the successful run above.
