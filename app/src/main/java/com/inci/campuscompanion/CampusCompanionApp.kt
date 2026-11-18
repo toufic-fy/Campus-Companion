@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.work.Configuration
 import com.inci.campuscompanion.data.network.CampusApi
 import com.inci.campuscompanion.data.network.EventsRemoteDataSource
+import com.inci.campuscompanion.notifications.NotificationPermissionChecker
 import com.inci.campuscompanion.work.RefreshEventsWorkerFactory
 import retrofit2.Retrofit
 import com.inci.campuscompanion.notifications.createEventUpdatesChannel
@@ -22,6 +23,9 @@ class CampusCompanionApp : Application(), Configuration.Provider {
     }
     val notificationSettingsRepository by lazy {
         NotificationSettingsRepository(this)
+    }
+    val notificationPermissionChecker by lazy {
+        NotificationPermissionChecker(this)
     }
     override fun onCreate() {
         super.onCreate()
