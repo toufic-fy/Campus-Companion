@@ -47,7 +47,8 @@ fun TaskRoute(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
     onOpenEvents: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    notificationSettings: @Composable () -> Unit = {}
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
@@ -58,7 +59,8 @@ fun TaskRoute(
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
         onOpenEvents = onOpenEvents,
-        modifier = modifier
+        modifier = modifier,
+        notificationSettings = notificationSettings
     )
 }
 
@@ -70,7 +72,8 @@ fun TaskContent(
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
     onOpenEvents: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    notificationSettings: @Composable () -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -101,6 +104,7 @@ fun TaskContent(
                 }
             }
 
+            notificationSettings()
             HorizontalDivider()
 
             if (tasks.isEmpty()) {

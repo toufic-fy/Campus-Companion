@@ -51,11 +51,12 @@ class CampusEventViewModel(
 
     val uiState: StateFlow<EventsUiState> = combine(
         eventsRepository.cachedEvents,
-        refreshStatus
-    ) { events, status ->
+        refreshStatus,
+        eventsRepository.hasConfirmedRefresh
+    ) { events, status, hasBaseline ->
         when {
             events.isNotEmpty() -> EventsUiState.Success(events)
-            status == RefreshUi.Current -> EventsUiState.Success(emptyList())
+            hasBaseline || status == RefreshUi.Current -> EventsUiState.Success(emptyList())
             status == RefreshUi.Failed -> EventsUiState.Error("Could not refresh events")
             else -> EventsUiState.Loading
         }

@@ -1,5 +1,7 @@
 package com.inci.campuscompanion.data.local.dao
 
+import com.inci.campuscompanion.data.local.entity.EventSyncState
+import com.inci.campuscompanion.data.local.entity.SeenEvent
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
@@ -11,6 +13,24 @@ import kotlinx.coroutines.flow.Flow
 interface EventDao {
     @Query("SELECT * FROM events ORDER BY startsAt")
     fun getEvents(): Flow<List<EventEntity>>
+
+    @Query("SELECT id FROM events")
+    suspend fun cachedIds(): List<String>
+
+    @Query("SELECT id FROM seen_events")
+    suspend fun seenIds(): List<String>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM event_sync_state WHERE id = 1)")
+    suspend fun hasBaseline(): Boolean
+
+    @Query("SELECT EXISTS(SELECT 1 FROM event_sync_state WHERE id = 1)")
+    fun observeBaseline(): Flow<Boolean>
+
+    @Upsert
+    suspend fun rememberIds(ids: List<SeenEvent>)
+
+    @Upsert
+    suspend fun markSynced(state: EventSyncState)
 
     @Upsert
     suspend fun upsertEvents(events: List<EventEntity>)

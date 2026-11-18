@@ -18,6 +18,8 @@ import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import retrofit2.HttpException
 import java.io.IOException
+import com.google.gson.JsonParseException
+import com.inci.campuscompanion.notifications.EventNotifications
 import java.util.concurrent.TimeUnit
 
 class RefreshEventWorker(
@@ -28,11 +30,15 @@ class RefreshEventWorker(
     override suspend fun doWork(): Result {
         val repository = EventsRepository(
             EventsRemoteDataSource(RetrofitClient.campusApi),
-            AppDatabase.getDatabase(applicationContext).eventDao(),
+            AppDatabase.getDatabase(applicationContext),
         )
         return try {
-            repository.refreshEvents()
+            repository.refreshEvents { newEvents -> EventNotifications.show(applicationContext, newEvents) }
             Result.success()
+        } catch (e: JsonParseException) {
+            Result.failure()
+        } catch (e: com.google.gson.stream.MalformedJsonException) {
+            Result.failure()
         } catch (e: IOException) {
             Result.retry()
         } catch (e: HttpException) {

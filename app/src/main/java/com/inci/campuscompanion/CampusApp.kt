@@ -1,5 +1,12 @@
 package com.inci.campuscompanion
 
+import android.net.Uri
+import androidx.navigation.navDeepLink
+import androidx.navigation.navArgument
+import androidx.navigation.navOptions
+import androidx.navigation.NavDeepLinkRequest
+import androidx.navigation.NavType
+import com.inci.campuscompanion.ui.tasks.EventUpdateSettings
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -31,13 +38,13 @@ import com.inci.campuscompanion.ui.view_model.TasksViewModel
 import com.inci.campuscompanion.worker.RefreshEventWorker
 
 @Composable
-fun CampusApp() {
+fun CampusApp(notificationUri: Uri? = null, onLinkConsumed: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val database = remember { AppDatabase.getDatabase(context) }
     val preferences = remember { UserPreferencesRepository(context.dataStore) }
     val tasks: TasksViewModel = viewModel(factory = TasksViewModel.Factory(
         preferences, TaskRepository(database.taskDao())))
-    val events = remember { EventsRepository(EventsRemoteDataSource(RetrofitClient.campusApi), database.eventDao()) }
+    val events = remember { EventsRepository(EventsRemoteDataSource(RetrofitClient.campusApi), database) }
     val workManager = remember { WorkManager.getInstance(context) }
     val isDarkMode by tasks.isDarkMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
@@ -45,6 +52,18 @@ fun CampusApp() {
     CampusCompanionTheme(darkTheme = isDarkMode) {
         Scaffold(Modifier.fillMaxSize()) { padding ->
             AppNavHost(navController, tasks, events, workManager, isDarkMode, Modifier.padding(padding))
+            LaunchedEffect(notificationUri) {
+                notificationUri?.let {
+                    navController.navigate(
+                        request = NavDeepLinkRequest.Builder.fromUri(it).build(),
+                        navOptions = navOptions {
+                            popUpTo("tasks") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    )
+                    onLinkConsumed()
+                }
+            }
         }
     }
 }
@@ -64,13 +83,18 @@ fun AppNavHost(
                 viewModel = tasks,
                 isDarkMode = isDarkMode,
                 onToggleDarkMode = tasks::toggleDarkMode,
-                onOpenEvents = { navController.navigate("events") { launchSingleTop = true } }
+                onOpenEvents = { navController.navigate("events") { launchSingleTop = true } },
+                notificationSettings = { EventUpdateSettings() }
             )
         }
-        composable("events") {
+        composable(
+            route = "events?eventId={eventId}",
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType; nullable = true; defaultValue = null }),
+            deepLinks = listOf(navDeepLink { uriPattern = "campus://events/{eventId}" })
+        ) { entry ->
             val events: CampusEventViewModel = viewModel(factory =
                 CampusEventViewModel.Factory(eventsRepository, workManager))
-            EventsScreen(viewModel = events, onBack = { navController.popBackStack() })
+            EventsScreen(viewModel = events, onBack = { navController.popBackStack() }, selectedEventId = entry.arguments?.getString("eventId"))
         }
     }
 }

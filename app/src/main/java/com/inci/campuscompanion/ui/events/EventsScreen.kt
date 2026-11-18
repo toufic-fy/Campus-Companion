@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
@@ -53,6 +55,7 @@ import com.inci.campuscompanion.ui.view_model.RefreshUi
 fun EventsScreen(
     viewModel: CampusEventViewModel,
     onBack: () -> Unit,
+    selectedEventId: String? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -115,6 +118,7 @@ fun EventsScreen(
             EventsContent(
                 uiState = uiState,
                 onRetry = { viewModel.refreshEvents() },
+                selectedEventId = selectedEventId,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -125,6 +129,7 @@ fun EventsScreen(
 fun EventsContent(
     uiState: EventsUiState,
     onRetry: () -> Unit,
+    selectedEventId: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -168,7 +173,13 @@ fun EventsContent(
                         )
                     }
                 } else {
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(selectedEventId, uiState.events) {
+                        val index = uiState.events.indexOfFirst { it.id == selectedEventId }
+                        if (index >= 0) listState.scrollToItem(index)
+                    }
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)

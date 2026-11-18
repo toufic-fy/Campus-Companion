@@ -1,0 +1,13 @@
+
+com.inci.campuscompanion.DatabaseMigrationTest:.
+com.inci.campuscompanion.EventRefreshTest:...
+com.inci.campuscompanion.ExampleInstrumentedTest:.
+com.inci.campuscompanion.LiveEventsWorkerTest:.
+com.inci.campuscompanion.NavigationWorkshopTest:.
+com.inci.campuscompanion.NotificationWorkshopTest:.
+
+Time: 25.177
+
+OK (8 tests)
+
+
