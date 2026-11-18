@@ -16,3 +16,9 @@ Tasks exposes `onOpenEvents` so it expresses user intent without depending on na
 Manual journey: launch → Tasks → Campus events → Events → toolbar Back → Tasks; repeat using system Back. Tasks and dark-mode preference remain saved.
 
 Validation results are recorded after running the checks, not inferred from another student’s PR.
+
+### Observed navigation verification — 18 November 2026
+
+- `:app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest` passed on the standalone navigation branch.
+- `NavigationWorkshopTest.tasksEventsToolbarAndSystemBack` passed on a fresh API 37 emulator: Tasks → Events → toolbar Back → Tasks → Events → system Back → Tasks (1 device test).
+- An earlier attempt on the pre-existing emulator failed because Android System UI stopped responding and took window focus. It is not counted as a successful test; the clean emulator run above passed.
