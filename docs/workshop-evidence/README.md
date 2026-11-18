@@ -10,3 +10,5 @@ Captured from the clean API 37 emulator on 18 November 2026, not mockups.
 - 06: Events opened by tapping that notification; cached data is visible while another refresh runs.
 
 The test log records all 8 tests passing. Screenshots alone do not prove absence of notifications; the instrumentation assertions cover those cases. New/unchanged-event policy uses controlled fixtures; the live worker test uses the supplied unchanged endpoint. See WORKSHOPS.md for limits and attribution.
+
+Image 02 was recaptured in a subsequent passing run of the same notification test after waiting for the system dialog’s animation to finish; the initial capture was too early. `notification-evidence-retest.txt` records that additional passing test. The app implementation was unchanged.

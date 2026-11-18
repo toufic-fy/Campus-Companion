@@ -1,0 +1,8 @@
+
+com.inci.campuscompanion.NotificationWorkshopTest:.
+
+Time: 11.637
+
+OK (1 test)
+
+

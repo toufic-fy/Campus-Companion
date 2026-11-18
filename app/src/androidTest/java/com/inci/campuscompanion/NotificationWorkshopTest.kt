@@ -52,6 +52,8 @@ class NotificationWorkshopTest {
         compose.onNodeWithContentDescription("Enable event updates").performClick()
         val deny = device.wait(Until.findObject(By.res("com.android.permissioncontroller", "permission_deny_button")), 10000)
         assertNotNull("Contextual Android permission dialog must appear", deny)
+        device.waitForIdle()
+        android.os.SystemClock.sleep(500) // Let the system dialog enter animation finish before evidence capture.
         device.takeScreenshot(File(context.getExternalFilesDir(null), "workshop-evidence/02-permission-dialog.png"))
         deny.click()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Open notification settings").fetchSemanticsNodes().isNotEmpty() }
