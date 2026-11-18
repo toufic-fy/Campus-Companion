@@ -46,8 +46,9 @@ fun TaskRoute(
     viewModel: TasksViewModel,
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
-    onNavigateEvents: () -> Unit,
-    modifier: Modifier = Modifier
+    onOpenEvents: () -> Unit,
+    modifier: Modifier = Modifier,
+    notificationSettings: @Composable () -> Unit = {}
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
@@ -57,8 +58,9 @@ fun TaskRoute(
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
-        onNavigateEvents = onNavigateEvents,
-        modifier = modifier
+        onOpenEvents = onOpenEvents,
+        modifier = modifier,
+        notificationSettings = notificationSettings
     )
 }
 
@@ -69,8 +71,9 @@ fun TaskContent(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    onNavigateEvents: () -> Unit,
-    modifier: Modifier = Modifier
+    onOpenEvents: () -> Unit,
+    modifier: Modifier = Modifier,
+    notificationSettings: @Composable () -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -93,14 +96,15 @@ fun TaskContent(
                     onCheckedChange = onToggleDarkMode
                 )
                 Button(
-                    onClick = onNavigateEvents
+                    onClick = onOpenEvents
                 ) {
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Events")
+                    Text("Campus events")
                 }
             }
 
+            notificationSettings()
             HorizontalDivider()
 
             if (tasks.isEmpty()) {
@@ -261,7 +265,7 @@ fun TaskPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            onNavigateEvents = {}
+            onOpenEvents = {}
         )
     }
 }

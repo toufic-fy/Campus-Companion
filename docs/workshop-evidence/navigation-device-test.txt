@@ -1,0 +1,8 @@
+
+com.inci.campuscompanion.NavigationWorkshopTest:.
+
+Time: 15.919
+
+OK (1 test)
+
+

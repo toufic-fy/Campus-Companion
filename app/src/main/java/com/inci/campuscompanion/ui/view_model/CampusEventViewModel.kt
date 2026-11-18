@@ -8,13 +8,11 @@ import androidx.work.WorkManager
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.model.CampusEvent
 import com.inci.campuscompanion.worker.RefreshEventWorker
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 sealed interface EventsUiState {
     data object Loading : EventsUiState
@@ -22,36 +20,58 @@ sealed interface EventsUiState {
     data class Error(val message: String) : EventsUiState
 }
 
+sealed interface RefreshUi {
+    data object Idle : RefreshUi
+    data object Queued : RefreshUi
+    data object Refreshing : RefreshUi
+    data object Current : RefreshUi
+    data object Failed : RefreshUi
+}
+
 class CampusEventViewModel(
     private val eventsRepository: EventsRepository,
     private val workManager: WorkManager,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
-    val uiState: StateFlow<EventsUiState> = _uiState.asStateFlow()
-
-    val workInfo: StateFlow<WorkInfo?> = workManager
-        .getWorkInfosForUniqueWorkFlow(RefreshEventWorker.WORK_NAME)
-        .map { list -> list.firstOrNull() }
+    val refreshStatus: StateFlow<RefreshUi> = workManager
+        .getWorkInfosForUniqueWorkFlow(RefreshEventWorker.REFRESH_WORK_NAME)
+        .map { list ->
+            when (list.firstOrNull()?.state) {
+                WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> RefreshUi.Queued
+                WorkInfo.State.RUNNING -> RefreshUi.Refreshing
+                WorkInfo.State.SUCCEEDED -> RefreshUi.Current
+                WorkInfo.State.FAILED -> RefreshUi.Failed
+                else -> RefreshUi.Idle
+            }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null,
+            initialValue = RefreshUi.Idle,
         )
 
+    val uiState: StateFlow<EventsUiState> = combine(
+        eventsRepository.cachedEvents,
+        refreshStatus,
+        eventsRepository.hasConfirmedRefresh
+    ) { events, status, hasBaseline ->
+        when {
+            events.isNotEmpty() -> EventsUiState.Success(events)
+            hasBaseline || status == RefreshUi.Current -> EventsUiState.Success(emptyList())
+            status == RefreshUi.Failed -> EventsUiState.Error("Could not refresh events")
+            else -> EventsUiState.Loading
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = EventsUiState.Loading,
+    )
+
     init {
-        loadEvents()
+        refreshEvents()
     }
 
-    fun loadEvents() {
-        viewModelScope.launch {
-            _uiState.value = EventsUiState.Loading
-            try {
-                val events = eventsRepository.getEvents()
-                _uiState.value = EventsUiState.Success(events)
-            } catch (e: Exception) {
-                _uiState.value = EventsUiState.Error(e.localizedMessage ?: "Failed to load events")
-            }
-        }
+    fun refreshEvents() {
+        RefreshEventWorker.enqueueUniqueWork(workManager)
     }
 
     companion object {
