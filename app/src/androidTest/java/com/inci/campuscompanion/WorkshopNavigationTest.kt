@@ -8,9 +8,24 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
 
 class WorkshopNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private lateinit var activity: MainActivity
+    private lateinit var launchIntent: Intent
+
+    @Before fun rememberLaunchIntent() {
+        activity = compose.activity
+        launchIntent = Intent(activity.intent)
+    }
+
+    @After fun restoreIntentForScenarioCleanup() {
+        // ActivityScenario filters lifecycle events by its original launch Intent.
+        // Production onNewIntent correctly updates getIntent; restore only for test cleanup.
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { activity.intent = launchIntent }
+    }
 
     @Test fun tasksOpensFirstAndBothBackActionsReturnToTasks() {
         compose.onNodeWithText("Campus events").assertIsDisplayed().performClick()
