@@ -31,7 +31,7 @@ class WorkshopWorkManagerTest {
         }
     }
 
-    @Test fun offlineRefreshIsUniqueAndCompletesAfterNetworkReturns() = runBlocking {
+    @Test fun offlineRefreshIsUniqueAndCompletesAfterNetworkReturns(): Unit = runBlocking {
         val context = instrumentation.targetContext
         val manager = WorkManager.getInstance(context)
         fun work() = manager.getWorkInfosForUniqueWork(RefreshEventsWorker.MANUAL_NAME).get(10, TimeUnit.SECONDS)

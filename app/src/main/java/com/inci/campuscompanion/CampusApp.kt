@@ -2,6 +2,7 @@ package com.inci.campuscompanion
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,7 @@ import com.inci.campuscompanion.worker.RefreshEventsWorker
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.inci.campuscompanion.ui.EventsScreen
 import com.inci.campuscompanion.ui.EventsViewModel
 import com.inci.campuscompanion.ui.MainViewModel
@@ -33,6 +35,11 @@ import com.inci.campuscompanion.ui.MainViewModel
 fun CampusApp(tasksViewModel: MainViewModel, eventsViewModel: EventsViewModel, graph: AppGraph, incomingIntent: Intent?) {
     val navController = rememberNavController()
     AppNavHost(navController, tasksViewModel, eventsViewModel, graph)
+    val currentEntry by navController.currentBackStackEntryAsState()
+    // Keep Back inside this single-activity graph, including while a destination enters.
+    BackHandler(enabled = currentEntry?.destination?.route?.startsWith("events") == true) {
+        navController.popBackStack()
+    }
     LaunchedEffect(incomingIntent) {
         val uri = incomingIntent?.data
         if (uri?.scheme == "campus" && uri.host == "events") {

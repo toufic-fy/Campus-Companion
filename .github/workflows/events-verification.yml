@@ -1,10 +1,13 @@
 name: Charbel workshop verification
 on:
   push:
-    branches: [feature/charbel-events-api, feature/charbel-workshop-completion, feature/charbel-notifications]
+    branches: [feature/charbel-events-api, 'feature/charbel-workshop-*', feature/charbel-notifications]
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: workshop-verification-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
