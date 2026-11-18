@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocationOn
@@ -51,6 +52,7 @@ import com.inci.campuscompanion.ui.view_model.RefreshUi
 @Composable
 fun EventsScreen(
     viewModel: CampusEventViewModel,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,6 +71,11 @@ fun EventsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Campus Events") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 actions = {
                     if (isSyncing) {
                         CircularProgressIndicator(

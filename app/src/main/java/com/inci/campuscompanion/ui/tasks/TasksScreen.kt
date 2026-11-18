@@ -46,7 +46,7 @@ fun TaskRoute(
     viewModel: TasksViewModel,
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
-    onNavigateEvents: () -> Unit,
+    onOpenEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
@@ -57,7 +57,7 @@ fun TaskRoute(
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
-        onNavigateEvents = onNavigateEvents,
+        onOpenEvents = onOpenEvents,
         modifier = modifier
     )
 }
@@ -69,7 +69,7 @@ fun TaskContent(
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
-    onNavigateEvents: () -> Unit,
+    onOpenEvents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -93,11 +93,11 @@ fun TaskContent(
                     onCheckedChange = onToggleDarkMode
                 )
                 Button(
-                    onClick = onNavigateEvents
+                    onClick = onOpenEvents
                 ) {
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Events")
+                    Text("Campus events")
                 }
             }
 
@@ -261,7 +261,7 @@ fun TaskPreview() {
             ),
             onToggleTask = {},
             onAddTask = { _, _ -> },
-            onNavigateEvents = {}
+            onOpenEvents = {}
         )
     }
 }
