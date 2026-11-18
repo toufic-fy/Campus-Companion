@@ -17,6 +17,7 @@
         android:theme="@style/Theme.CampusCompanion">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.CampusCompanion"
