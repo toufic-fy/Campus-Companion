@@ -1,6 +1,7 @@
 package com.inci.campuscompanion.data.repository
 
 import com.inci.campuscompanion.data.network.EventsRemoteDataSource
+import com.inci.campuscompanion.notifications.NotificationPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,4 +43,6 @@ class EventsRepository(
     suspend fun refreshEvents(): List<CampusEvent> {
         return getEvents()
     }
+
+
 }
