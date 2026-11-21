@@ -49,7 +49,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
+import androidx.work.ExistingWorkPolicy
 import com.inci.campuscompanion.notifications.EventNotifications
+import com.inci.campuscompanion.notifications.EventSnapshotStore
+import com.inci.campuscompanion.worker.RefreshEventWorker
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
@@ -111,6 +114,20 @@ fun TaskRoute(
                 Toast.makeText(context, "Notifications are blocked. Turn them on first.", Toast.LENGTH_SHORT).show()
             }
         },
+        onCheckEventUpdates = {
+            // Step 6: run the background refresh once, right now
+            RefreshEventWorker.enqueueUniqueWork(context, ExistingWorkPolicy.REPLACE)
+            Toast.makeText(context, "Checking for event updates…", Toast.LENGTH_SHORT).show()
+        },
+        onSimulateEventChange = {
+            // Step 6 (test only): make the saved copy differ from the API, then refresh
+            if (EventSnapshotStore(context).simulateLocationChangeForTesting()) {
+                RefreshEventWorker.enqueueUniqueWork(context, ExistingWorkPolicy.REPLACE)
+                Toast.makeText(context, "Simulated a change. Refreshing…", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Tap \"Check for event updates now\" first.", Toast.LENGTH_SHORT).show()
+            }
+        },
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -134,6 +151,8 @@ fun TaskContent(
     notificationsEnabled: Boolean,
     onToggleNotifications: (Boolean) -> Unit,
     onSendTestNotification: () -> Unit,
+    onCheckEventUpdates: () -> Unit,
+    onSimulateEventChange: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -194,6 +213,16 @@ fun TaskContent(
                     modifier = Modifier.padding(horizontal = 8.dp)
                 ) {
                     Text("Send test notification")
+                }
+            }
+
+            // Step 6: test the real "changed events" flow through RefreshEventWorker
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                TextButton(onClick = onCheckEventUpdates) {
+                    Text("Check for event updates now")
+                }
+                TextButton(onClick = onSimulateEventChange) {
+                    Text("Simulate a change (test)")
                 }
             }
 
@@ -354,6 +383,8 @@ fun TaskPreview() {
             notificationsEnabled = true,
             onToggleNotifications = {},
             onSendTestNotification = {},
+            onCheckEventUpdates = {},
+            onSimulateEventChange = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)
