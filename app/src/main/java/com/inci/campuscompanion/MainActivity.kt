@@ -24,6 +24,7 @@ import com.inci.campuscompanion.data.remote.api.EventsRemoteDataSource
 import com.inci.campuscompanion.data.remote.api.RetrofitClient
 import com.inci.campuscompanion.data.repository.EventsRepository
 import com.inci.campuscompanion.data.repository.TaskRepository
+import com.inci.campuscompanion.notifications.EventNotifications
 import com.inci.campuscompanion.ui.events.EventsScreen
 import com.inci.campuscompanion.ui.tasks.TaskRoute
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
@@ -35,6 +36,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Step 2: make sure the "Event updates" notification channel exists
+        EventNotifications.createChannel(applicationContext)
 
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())

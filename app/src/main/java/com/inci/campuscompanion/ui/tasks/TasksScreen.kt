@@ -1,5 +1,12 @@
 package com.inci.campuscompanion.ui.tasks
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,11 +40,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.model.Task
+import androidx.work.ExistingWorkPolicy
+import com.inci.campuscompanion.notifications.EventNotifications
+import com.inci.campuscompanion.notifications.EventSnapshotStore
+import com.inci.campuscompanion.worker.RefreshEventWorker
 import com.inci.campuscompanion.ui.theme.CampusCompanionTheme
 import com.inci.campuscompanion.ui.view_model.TasksViewModel
 
@@ -50,10 +65,69 @@ fun TaskRoute(
     modifier: Modifier = Modifier
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val notificationsEnabled by viewModel.eventNotificationsEnabled.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Step 4: every time the screen comes back, make the toggle match reality.
+    // If notifications are blocked in system Settings, show the toggle as OFF.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (needsNotificationPermission(context)) {
+            viewModel.setEventNotificationsEnabled(false)
+        }
+    }
+
+    // Step 4: the system permission dialog. Its answer decides the toggle.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setEventNotificationsEnabled(granted)
+        if (!granted) {
+            Toast.makeText(
+                context,
+                "Notifications are blocked. You can allow them in Settings.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     TaskContent(
         isDarkMode = isDarkMode,
         onToggleDarkMode = onToggleDarkMode,
+        notificationsEnabled = notificationsEnabled,
+        onToggleNotifications = { enabled ->
+            // Step 4: ask only when the user turns the toggle ON (contextual)
+            if (enabled && needsNotificationPermission(context)) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.setEventNotificationsEnabled(enabled)
+            }
+        },
+        onSendTestNotification = {
+            // Step 5: one test notification
+            val shown = EventNotifications.showEventUpdate(
+                context = context,
+                title = "Career Fair moved",
+                text = "Now in the Main Hall at 2:00 PM. Tap to open Campus Companion.",
+                notificationId = EventNotifications.TEST_NOTIFICATION_ID
+            )
+            if (!shown) {
+                Toast.makeText(context, "Notifications are blocked. Turn them on first.", Toast.LENGTH_SHORT).show()
+            }
+        },
+        onCheckEventUpdates = {
+            // Step 6: run the background refresh once, right now
+            RefreshEventWorker.enqueueUniqueWork(context, ExistingWorkPolicy.REPLACE)
+            Toast.makeText(context, "Checking for event updates…", Toast.LENGTH_SHORT).show()
+        },
+        onSimulateEventChange = {
+            // Step 6 (test only): make the saved copy differ from the API, then refresh
+            if (EventSnapshotStore(context).simulateLocationChangeForTesting()) {
+                RefreshEventWorker.enqueueUniqueWork(context, ExistingWorkPolicy.REPLACE)
+                Toast.makeText(context, "Simulated a change. Refreshing…", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Tap \"Check for event updates now\" first.", Toast.LENGTH_SHORT).show()
+            }
+        },
         tasks = tasks,
         onToggleTask = viewModel::toggleTaskCompletion,
         onAddTask = viewModel::upsertTask,
@@ -62,10 +136,23 @@ fun TaskRoute(
     )
 }
 
+/** Step 4: POST_NOTIFICATIONS is a runtime permission only on Android 13+ (API 33). */
+private fun needsNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) != PackageManager.PERMISSION_GRANTED
+
 @Composable
 fun TaskContent(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
+    onCheckEventUpdates: () -> Unit,
+    onSimulateEventChange: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -98,6 +185,44 @@ fun TaskContent(
                     Icon(imageVector = Icons.Default.Event, contentDescription = "Events")
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Events")
+                }
+            }
+
+            // Step 3: notification preference toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event update notifications",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = onToggleNotifications
+                )
+            }
+
+            // Step 5: send one test notification (only when the toggle is ON)
+            if (notificationsEnabled) {
+                TextButton(
+                    onClick = onSendTestNotification,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    Text("Send test notification")
+                }
+            }
+
+            // Step 6: test the real "changed events" flow through RefreshEventWorker
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                TextButton(onClick = onCheckEventUpdates) {
+                    Text("Check for event updates now")
+                }
+                TextButton(onClick = onSimulateEventChange) {
+                    Text("Simulate a change (test)")
                 }
             }
 
@@ -255,6 +380,11 @@ fun TaskPreview() {
         TaskContent(
             isDarkMode = false,
             onToggleDarkMode = {},
+            notificationsEnabled = true,
+            onToggleNotifications = {},
+            onSendTestNotification = {},
+            onCheckEventUpdates = {},
+            onSimulateEventChange = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)

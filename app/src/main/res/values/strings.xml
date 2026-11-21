@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Campus Companion</string>
     <string name="tba">TBA</string>
+
+    <!-- Notification channel: Event updates -->
+    <string name="channel_event_updates_name">Event updates</string>
+    <string name="channel_event_updates_description">Alerts when a campus event you follow changes</string>
 </resources>
